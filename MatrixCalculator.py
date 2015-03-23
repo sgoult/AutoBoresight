@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#-*- coding:utf-8 -*-
 
 import argparse
 import numpy
@@ -16,20 +15,29 @@ import spy
 #set our sensor and bands to process
 #needs to import FOV data, look direction and look slant per instrument
 #also needs lever arm offsets (though these should be constant from 2015)
-def setFov(sensor):
-   if sensor is eagle:
-      fovfile=getEagleFov()
-   elif sensor is hawk:
-      fovfile=getHawkFov()
-   elif sensor is fenix:
-      fovfile=getFenixFov()
-   elif sensor is owl:
-      fovfile=getOwlFov()
-   
-   return fovfile
+
+##########################
+#generators for info - these should be replaced with either inputs or if statements for the sensors
+##########################
+def pixelFov():
+   return 0.037165
+
+def fov():
+   return 37.7
+
+def pixelCount():
+   #this is binned by 2, should it be divided?
+   return 1024
+
+def centrePixel():
+   return 512
+
+def internalOrientation():
+
 
 def flightlineHandler():
-   fov=getCentrePixelFov(centrepixel, fovfile)
+   pixelfov=PixelFov()
+   fov=Fov()
    adjustments=[]
    stddev=[]
    for flightline in dataset:
@@ -86,21 +94,6 @@ def gcpReader(gcpfile):
       raise Exception
    
    return gcps
-   
-   
-#rotates the sensor frame into the boresight frame
-def SframeToBframe(sframe):
-
-#rotates the boresight frame into the mapping frame
-def BframtoMframe(bframe):
-
-#brings the matrices into scale
-def scaler(matrixtoscale, scale):
-
-def leastSquareAdjustor:
-   
-def centreGcpIdent(gcplist, navinf):
-   
 
       
       
