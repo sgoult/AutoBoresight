@@ -22,7 +22,7 @@ import spy
 def pixelFov():
    return 0.037165
 
-def fov():
+def fieldOfView():
    return 37.7
 
 def pixelCount():
@@ -36,8 +36,8 @@ def internalOrientation():
 
 
 def flightlineHandler():
-   pixelfov=PixelFov()
-   fov=Fov()
+   pixelfov=pixelFov()
+   fov=fieldOfView()
    adjustments=[]
    stddev=[]
    for flightline in dataset:
@@ -56,7 +56,7 @@ def flightlineHandler():
       adjustments.extend([flightlineadjustments])
    
    numpy.mean(adjustments, axis=0)
-   numpy.std(adjustments, axis=0)
+   numpy.std(adjustments, axis=0)ive
    numpy.average(adjustments, axis=0)
    numpy.var(adjustments, axis=0)
    return adjustments
@@ -68,24 +68,24 @@ def imuGrabber(navinf):
    return imuattitude
          
 
-def attitudeTriangulation(gcps, scanlineposition, projection)
-   acceptedgcps
-   for gcp in gcps:
-      if gcp is outside range of sensible location
-         ditch
-      else:
-         acceptedgcps.extend(gcp)
-   given position p(centrepixel proj)
-   return triangulatedattitude
+# def attitudeTriangulation(gcps, scanlineposition, projection)
+#    acceptedgcps
+#    for gcp in gcps:
+#       if gcp is outside range of sensible location
+#          ditch
+#       else:
+#          acceptedgcps.extend(gcp)
+#    given position p(centrepixel proj)
+#    return triangulatedattitude
    
       
-def attitudeComparison(imuattitude, triangulatedattitude, currentadjustments):
-   pitchadjust = imuattitude[0] + triangulatedattitude[0]
-   rolladjust = imuattitude[1] + triangulatedattitude[1]
-   headingadjust = imuattitude[2] + triangulatedattitude[2]
-   
-   adjustments=[pitchadjust, rolladjust, headingadjust]
-   return adjustments
+# def attitudeComparison(imuattitude, triangulatedattitude, currentadjustments):
+#    pitchadjust = imuattitude[0] + triangulatedattitude[0]
+#    rolladjust = imuattitude[1] + triangulatedattitude[1]
+#    headingadjust = imuattitude[2] + triangulatedattitude[2]
+#
+#    adjustments=[pitchadjust, rolladjust, headingadjust]
+#    return adjustments
    
 def gcpReader(gcpfile):
    if os.path.exists(gcpfile):
@@ -95,8 +95,29 @@ def gcpReader(gcpfile):
    
    return gcps
 
-      
-      
+def gcpToPlaneVector(planex, planey, planez, heading, pitch, roll, gcpx, gcpy, gcpz, fov, pixelfov):
+
+   return vector
+
+def sensorModel(navinf, scanlinestarttime, scanlineendtime, scanlinetime, altitude):
+   #sensor position
+   xorigin=scanlinestarttime
+   x=scanlinetime
+   yorigin=0 #this is our centre pixel, pixels span outwards along +/- 512
+   ymax=512
+   ymin=-512
+   zorigin=0 #zorigin is the plane
+   zmax=altitude #zmax is the plane altitude, points cant be beyond this point
+
+   #sensor info
+   #field of view, perpixel fov etc, set in the function arguments
+
+   #projection position
+   #perspective is based on where the sensor fov intersects the elevation model below
+
+
+   return model
+
 if __name__=='__main__':
    #Get the input arguments
    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
