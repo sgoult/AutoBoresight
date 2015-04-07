@@ -1,11 +1,48 @@
 from math import *
 from numpy import *
 
-def headingangle(centrepixel, truegcp, sensorgcp, altitude, demavg):
+def calculator():
+   #find the heading correction
+   for gcp in imagespacegcps:
+      #find centre pixel
+      #identify real gcp position
+      #find nav height
+      #find heading angle
+   #average heading angles
+   #find standard deviation
+   #remove heading angles above 2 std dev
+   #find new std dev
+   #repeat
+   #use final heading value to adjust sensor gcps
+   #for gcp identified in image space
+      #adjusted = headingadjust(angle)
+      #adjustedgcps.append(adjusted)
+   #find pitch and roll using the adjusted gcps
+   pitchrollvalues=[]
+   for adjustedgcp in adjustedgcps:
+      pitchroll = pitchrolladjust()
+      pitchrollvalues.append(pitchroll)
+   #find average of pitch roll values
+   #remove std dev * 2
+   #reaverage
+   return pitch, roll, heading
+
+
+def headingangle(centrepixel, truegcp, sensorgcp):
    #set xyz so that the calcs are a bit more sensible to read
-   x=0
-   y=1
-   z=2
+   """
+   generates heading angles from the centre pixel for each
+
+   :param centrepixel:
+   :param truegcp:
+   :param sensorgcp:
+   :param altitude:
+   :param demavg:
+   :return:
+   """
+   x = 0
+   y = 1
+   z = 2
 
    #set for testing
    #centerpixel=array([x,y,z])
@@ -13,14 +50,18 @@ def headingangle(centrepixel, truegcp, sensorgcp, altitude, demavg):
    #sensorgcp=array([x,y,z])
 
    #create the vector of the scanline direction
-   sensorvect = [(sensorgcp[x] - centrepixel[x]), (sensorgcp[y] - centrepixel[y]), (sensorgcp[z] - centrepixel[z])]
+   sensorvect = [(sensorgcp[x] - centrepixel[x]),
+                 (sensorgcp[y] - centrepixel[y]),
+                 (sensorgcp[z] - centrepixel[z])]
    print "sensorvect"
    print sensorvect
 
    #create the vector of the scanline direction
 
    #create the vector of the ground control point from its position in sensor space
-   gcpvect = [(truegcp[x] - centrepixel[x]), (truegcp[y] - centrepixel[y]), (truegcp[z] - centrepixel[z])]
+   gcpvect = [(truegcp[x] - centrepixel[x]),
+              (truegcp[y] - centrepixel[y]),
+              (truegcp[z] - centrepixel[z])]
    print "gcpvect"
    print gcpvect
    #create the magnitude (scalar) of the resultant vector
@@ -60,29 +101,33 @@ def headingangle(centrepixel, truegcp, sensorgcp, altitude, demavg):
    return theta
 
 #should have found the heading angle first
-def headingAdjust(truegcp, centrepixel, angle):
+def headingadjust(truegcp, centrepixel, angle):
    #this is not right
    x = 0
    y = 1
    z = 2
 
    #make the centre pixel the centre pixel the centre of the axis
-   gcp = [(truegcp[x] - centrepixel[x]), (truegcp[y] - centrepixel[y]), (truegcp[z] - centrepixel[z])]
+   gcp = [(truegcp[x] - centrepixel[x]),
+          (truegcp[y] - centrepixel[y]),
+          (truegcp[z] - centrepixel[z])]
 
-   xadjust=(gcp[x]*cos(angle))+(gcp[y]*sin(angle))
-   yadjust=(gcp[x]*-sin(angle))+(gcp[y]*cos(angle))
-   zadjust=gcp[z]
-   adjustedgcp=[xadjust,yadjust,zadjust]
+   xadjust = (gcp[x] * cos(angle)) + (gcp[y] * sin(angle))
+   yadjust = (gcp[x] * -sin(angle)) + (gcp[y] * cos(angle))
+   zadjust = gcp[z]
+   adjustedgcp = [xadjust, yadjust, zadjust]
 
    #add the centre pixel back on to bring it in to context
-   adjustedgcp = [(adjustedgcp[x] + centrepixel[x]), (adjustedgcp[y] + centrepixel[y]), (adjustedgcp[z] + centrepixel[z])]
+   adjustedgcp = [(adjustedgcp[x] + centrepixel[x]),
+                  (adjustedgcp[y] + centrepixel[y]),
+                  (adjustedgcp[z] + centrepixel[z])]
    return adjustedgcp
 
 def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude, demavg):
    #set xyz so that the calcs are a bit more sensible to read
-   x=0
-   y=1
-   z=2
+   x = 0
+   y = 1
+   z = 2
 
    #set for testing
    #centerpixel=array([x,y,z])
@@ -90,14 +135,18 @@ def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude, demavg):
    #sensorgcp=array([x,y,z])
 
    #create the vector of the scanline direction
-   sensorvect = [(sensorgcp[x] - centrepixel[x]), (sensorgcp[y] - centrepixel[y]), (sensorgcp[z] - centrepixel[z])]
+   sensorvect = [(sensorgcp[x] - centrepixel[x]),
+                 (sensorgcp[y] - centrepixel[y]),
+                 (sensorgcp[z] - centrepixel[z])]
    print "sensorvect"
    print sensorvect
 
    #create the vector of the scanline direction
 
    #create the vector of the ground control point from its position in sensor space
-   gcpvect = [(truegcp[x] - sensorgcp[x]), (truegcp[y] - sensorgcp[y]), (truegcp[z] - sensorgcp[z])]
+   gcpvect = [(truegcp[x] - sensorgcp[x]),
+              (truegcp[y] - sensorgcp[y]),
+              (truegcp[z] - sensorgcp[z])]
    print "gcpvect"
    print gcpvect
    #create the magnitude (scalar) of the resultant vector
