@@ -1,32 +1,58 @@
 from math import *
 from numpy import *
 
-def calculator():
-   #find the heading correction
+def calculator(imagespacegcps, gcps, navfile):
+   #find pitch and roll using the adjusted gcps
+   pitchvalues = []
+   rollvalues = []
    for gcp in imagespacegcps:
+      pitch, roll = pitchrolladjust()
+      pitchvalues.append(pitch)
+      rollvalues.append(roll)
+   #find average of pitch roll values
+
+
+   #then we do heading angles
+   headingangles=[]
+   #find the heading correction
+   for sensorgcp in imagespacegcps:
       #find centre pixel
+      centrepixel=sensorgcp['centrepixel']
       #identify real gcp position
-      #find nav height
+      truegcp=gcps[sensorgcp['realgcp']]
       #find heading angle
-   #average heading angles
+      headingangles.append(headingangle(centrepixel, truegcp, sensorgcp)headingangle(centrepixel, truegcp, sensorgcp))
    #find standard deviation
-   #remove heading angles above 2 std dev
-   #find new std dev
-   #repeat
+   headingmean, headingstd = meanstd(headingangles)
+
+
+   #average heading angles
    #use final heading value to adjust sensor gcps
    #for gcp identified in image space
       #adjusted = headingadjust(angle)
       #adjustedgcps.append(adjusted)
    #find pitch and roll using the adjusted gcps
-   pitchrollvalues=[]
-   for adjustedgcp in adjustedgcps:
-      pitchroll = pitchrolladjust()
-      pitchrollvalues.append(pitchroll)
-   #find average of pitch roll values
-   #remove std dev * 2
+
    #reaverage
    return pitch, roll, heading
 
+def meanstd(list):
+   liststd = std(headingangles)
+   #remove heading angles above 2 std dev
+   while not stdsmoothcheck(list, liststd):
+      for num, item in enumerate(list):
+         if item >= (liststd * 2):
+            headingangles.pop(num)
+      liststd = std(headingangles)
+   listmean = sum(headingangles) / len(headingangles)
+   return listmean, liststd
+
+def stdsmoothcheck(list, liststd):
+   smoothed = True
+   for item in list:
+      if item >= liststd
+      smoothed = False
+   return smoothed
 
 def headingangle(centrepixel, truegcp, sensorgcp):
    #set xyz so that the calcs are a bit more sensible to read
