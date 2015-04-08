@@ -21,7 +21,7 @@ def calculator(imagespacegcps, gcps, navfile):
       #identify real gcp position
       truegcp=gcps[sensorgcp['realgcp']]
       #find heading angle
-      headingangles.append(headingangle(centrepixel, truegcp, sensorgcp)headingangle(centrepixel, truegcp, sensorgcp))
+      headingangles.append(headingangle(centrepixel, truegcp, sensorgcp))
    #find standard deviation
    headingmean, headingstd = meanstd(headingangles)
 
@@ -34,24 +34,24 @@ def calculator(imagespacegcps, gcps, navfile):
    #find pitch and roll using the adjusted gcps
 
    #reaverage
-   return pitch, roll, heading
+   return pitch, roll, headingmean, headingstd
 
 def meanstd(list):
-   liststd = std(headingangles)
+   liststd = std(list)
    #remove heading angles above 2 std dev
    while not stdsmoothcheck(list, liststd):
       for num, item in enumerate(list):
          if item >= (liststd * 2):
-            headingangles.pop(num)
-      liststd = std(headingangles)
-   listmean = sum(headingangles) / len(headingangles)
+            list.pop(num)
+      liststd = std(list)
+   listmean = sum(list) / len(list)
    return listmean, liststd
 
 def stdsmoothcheck(list, liststd):
    smoothed = True
    for item in list:
-      if item >= liststd
-      smoothed = False
+      if item >= liststd:
+         smoothed = False
    return smoothed
 
 def headingangle(centrepixel, truegcp, sensorgcp):
