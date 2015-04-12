@@ -1,21 +1,23 @@
 import cv2
 from numpy import *
+from scipy import ndimage
 
 def pointgrabber(scanlinetiff, gcpoints):
    bruteforce = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-   scanlineimg = cv2.imread(scanlinetiff)
+   scanlineimg = ndimage.imread(scanlinetiff)
    slgrey = cv2.cvtColor(scanlineimg, cv2.COLOR_BGR2GRAY)
    orb = cv2.ORB()
-   scanlinekeys = orb.detect(slgrey, None)
-   scanlinekeys, scanlinedescriptors = orb.compute(slgrey, scanlinekeys)
+   scanlinekeys = orb.detect(scanlineimg, None)
+   scanlinekeys, scanlinedescriptors = orb.compute(scanlineimg, scanlinekeys)
    for gcp in gcpoints:
-      gcpimg = cv2.imread(gcp.imgpath)
+      gcpimg = ndimage.imread(gcp.imgpath)
       gcpgrey = cv2.cvtColor(gcpimg,cv2.COLOR_BGR2GRAY)
       gcpkeypoints = orb.detect(gcpgrey,None)
       gcpkeypoints, gcpdescriptors = orb.compute(gcpgrey, gcpkeypoints)
       matches = bruteforce.match(gcpdescriptors, scanlinedescriptors)
       matches = sorted(matches, key = lambda x:x.distance)
 
+      #checked workings up to here, need to change to knn to progress
       good = []
       for m, n in matches:
          if m.distance < 0.7 * n.distance:
@@ -39,7 +41,7 @@ def pointgrabber(scanlinetiff, gcpoints):
          #we need to factor for distortion of the gcp image, so use cv2 perspective transform giving the final pixel points
          destinationpoints = cv2.perspectiveTransform(pts,M)
       else:
-         print "Not enough matches are found - %d/%d" % (len(good),MIN_MATCH_COUNT)
+         print "Not enough matches are found - %s/%s" % (len(good),MIN_MATCH_COUNT)
          matchesMask = None
 
       intersect
