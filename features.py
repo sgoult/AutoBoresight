@@ -2,26 +2,31 @@ import cv2
 from numpy import *
 from scipy import ndimage
 
+
 def pointgrabber(scanlinetiff, gcpoints):
-   bruteforce = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+   FLANN_INDEX_KDTREE = 0
+   index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+   search_params = dict(checks=50)
+   flann = cv2.FlannBasedMatcher(index_params, search_params)
    scanlineimg = ndimage.imread(scanlinetiff)
-   slgrey = cv2.cvtColor(scanlineimg, cv2.COLOR_BGR2GRAY)
+   # slgrey = cv2.cvtColor(scanlineimg, cv2.COLOR_BGR2GRAY)
    orb = cv2.ORB()
    scanlinekeys = orb.detect(scanlineimg, None)
    scanlinekeys, scanlinedescriptors = orb.compute(scanlineimg, scanlinekeys)
    for gcp in gcpoints:
       gcpimg = ndimage.imread(gcp.imgpath)
-      gcpgrey = cv2.cvtColor(gcpimg,cv2.COLOR_BGR2GRAY)
-      gcpkeypoints = orb.detect(gcpgrey,None)
+      gcpgrey = cv2.cvtColor(gcpimg, cv2.COLOR_BGR2GRAY)
+      gcpkeypoints = orb.detect(gcpgrey, None)
       gcpkeypoints, gcpdescriptors = orb.compute(gcpgrey, gcpkeypoints)
-      matches = bruteforce.match(gcpdescriptors, scanlinedescriptors)
-      matches = sorted(matches, key = lambda x:x.distance)
-
-      #checked workings up to here, need to change to knn to progress
-      good = []
-      for m, n in matches:
-         if m.distance < 0.7 * n.distance:
-            good.append(m)
+      matches = flann.knnMatch(gcpdescriptors, scanlinedescriptors, k=2)
+      matches = sorted(matches, key=lambda x: x.distance)
+      try:
+         good = []
+         for m, n in matches:
+            if m.distance < 0.7 * n.distance:
+               good.append(m)
+      except Exception, e:
+         print "something went horrifically wrong with flann :S"
 
       #assuming we have 10 good matches or more we can move on to the next stage
       if len(good) > 10:
@@ -36,33 +41,36 @@ def pointgrabber(scanlinetiff, gcpoints):
          h, w = gcpimg.shape
 
          #use the image shape to build a metric shape
-         pts = float32([ [0, 0], [0, h - 1],[w - 1, h - 1], [w - 1, 0] ]).reshape(-1, 1, 2)
+         pts = float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
 
          #we need to factor for distortion of the gcp image, so use cv2 perspective transform giving the final pixel points
-         destinationpoints = cv2.perspectiveTransform(pts,M)
+         destinationpoints = cv2.perspectiveTransform(pts, M)
       else:
-         print "Not enough matches are found - %s/%s" % (len(good),MIN_MATCH_COUNT)
+         print "Not enough matches are found for gcp (number)- %s/%s" % (len(good), MIN_MATCH_COUNT)
          matchesMask = None
 
       intersect
 
+
 def perp(a):
-    b = empty_like(a)
-    b[0] = -a[1]
-    b[1] = a[0]
-    return b
+   b = empty_like(a)
+   b[0] = -a[1]
+   b[1] = a[0]
+   return b
+
 
 def intersect(a1, a2, b1, b2):
-    da = a2 - a1
-    db = b2 - b1
-    dp = a1 - b1
-    dap = perp(da)
-    denom = dot(dap, db)
-    num = dot(dap, dp)
-    return (num / denom) * db + b1
+   da = a2 - a1
+   db = b2 - b1
+   dp = a1 - b1
+   dap = perp(da)
+   denom = dot(dap, db)
+   num = dot(dap, dp)
+   return (num / denom) * db + b1
+
 
 def boxer(contours):
    for contour in contours:
-      if 200<cv2.contourArea(contour)<5000:
-         (x,y,w,h) = cv2.boundingRect(contour)
-         cv2.rectangle(img,())
+      if 200 < cv2.contourArea(contour) < 5000:
+         (x, y, w, h) = cv2.boundingRect(contour)
+         cv2.rectangle(img, ())
