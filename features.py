@@ -1,6 +1,7 @@
 import cv2
 from numpy import *
 from scipy import ndimage
+from osgeo import gdal
 
 
 def pointgrabber(scanlinetiff, gcpoints):
@@ -33,7 +34,7 @@ def pointgrabber(scanlinetiff, gcpoints):
          src_pts = float32([gcpkeypoints[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
          dst_pts = float32([gcpkeypoints[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
-         M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
+         homography_matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
 
          #incase we need to use only inlier positive points
          #matchesMask = mask.ravel().tolist()
@@ -43,34 +44,38 @@ def pointgrabber(scanlinetiff, gcpoints):
          #use the image shape to build a metric shape
          pts = float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
 
-         #we need to factor for distortion of the gcp image, so use cv2 perspective transform giving the final pixel points
-         destinationpoints = cv2.perspectiveTransform(pts, M)
+         #transform our image into the the new plane
+         destinationpoints = cv2.perspectiveTransform(pts, homography_matrix)
       else:
          print "Not enough matches are found for gcp (number)- %s/%s" % (len(good), MIN_MATCH_COUNT)
          matchesMask = None
 
-      intersect
+      gcpcentre = intersect(pts)
+      gcponscanline = pixelcoordinates(gcpcentre[0], gcpcentre[1], scanlinetiff)
+
+def intersect(points):
+  """this 'should' work for a square or nearly square shape. If its not we might get an iffy return.
+  For use with pixel coordinates to grab the lat long of a point
+
+  Use with initial gcp image then rotate the resultant intersect through perspective transform"""
+  c = points[1][0][0] - points[0][0][0]
+  d = points[1][0][1] - points[0][0][1]
+
+  x1 = points[2][0][0] - points[0][0][0]
+  y1 = points[2][0][1] - points[0][0][1]
+
+  x2 = points[3][0][0] - points[1][0][0]
+  y2 = points[3][0][1] - points[1][0][1]
+
+  mew = (d - ((c * y2) / x1) / (((y1 * x2) / x1) - y2))
+
+  intersect = [mew * (x2 + points[1][0][0]), mew * (y2 + points[1][0][1])]
+
+  return intersect
 
 
-def perp(a):
-   b = empty_like(a)
-   b[0] = -a[1]
-   b[1] = a[0]
-   return b
-
-
-def intersect(a1, a2, b1, b2):
-   da = a2 - a1
-   db = b2 - b1
-   dp = a1 - b1
-   dap = perp(da)
-   denom = dot(dap, db)
-   num = dot(dap, dp)
-   return (num / denom) * db + b1
-
-
-def boxer(contours):
-   for contour in contours:
-      if 200 < cv2.contourArea(contour) < 5000:
-         (x, y, w, h) = cv2.boundingRect(contour)
-         cv2.rectangle(img, ())
+def pixelcoordinates(x, y, scanlinetiff):
+   xoff, a, b, yoff, d, e = scanlinetiff.GetGeoTransform()
+   long = a * x + b * y + xoff
+   lat = d * x + e * y + yoff
+   return lat, long
