@@ -3,12 +3,50 @@ from numpy import *
 from scipy import ndimage
 from osgeo import gdal
 
+def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
+   insideflightline=[]
+   latshift = sum(diff(igmarray[0][0])) / len(igmarray[0][0])
+   longshift = sum(diff(igmarray[1][0])) / len(igmarray[1][0])
 
-def pointgrabber(scanlinetiff, gcpoints):
-   FLANN_INDEX_KDTREE = 0
-   index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-   search_params = dict(checks=50)
-   flann = cv2.FlannBasedMatcher(index_params, search_params)
+   for point in keypointsarray:
+      coords = pixelcoordinates(point.pt[0], point.pt[1], scanlinetiff)
+      for scanline in igmarray[0]:
+         for lat in scanline:
+            if ((lat <= (coords[0]+0.7))) && ((lat >= (coords[0]-0.7))):
+               insidelat = True
+      for scanline in igmarray[1]:
+         for long in scanline:
+            if ((long <= (coords[1]+0.0024))) && ((long >= (coords[1]-0.0024))):
+               insidelong = True
+
+      if insidelong and insidelat:
+         insideflightline.append(point)
+   return insideflightline
+
+
+
+def tiepointgenerator(scanline1, scanline2):
+   bf = cv2.BFMatcher()
+   sli1 = ndimage.imread(scanline1)
+   sli2 = ndimage.imread(scanline1)
+   orb = cv2.ORB()
+   slk1, sld1 = orb.detectAndCompute(sli1, None)
+   slk2, sld2 = orb.detectAndCompute(sli2, None)
+
+   matches = bf.knnMatch(sld1, sld2)
+   try:
+      good = []
+      for m, n in matches:
+         if m.distance < 0.7 * n.distance:
+            good.append(m)
+   except Exception, e:
+      print "something went horrifically wrong with bfmatcher :S"
+
+   return slk1, slk2, good
+
+def gcpidentifier(scanlinetiff, gcpoints):
+   MIN_MATCH_COUNT = 10
+   bf = cv2.BFMatcher()
    scanlineimg = ndimage.imread(scanlinetiff)
    # slgrey = cv2.cvtColor(scanlineimg, cv2.COLOR_BGR2GRAY)
    orb = cv2.ORB()
@@ -19,15 +57,14 @@ def pointgrabber(scanlinetiff, gcpoints):
       gcpgrey = cv2.cvtColor(gcpimg, cv2.COLOR_BGR2GRAY)
       gcpkeypoints = orb.detect(gcpgrey, None)
       gcpkeypoints, gcpdescriptors = orb.compute(gcpgrey, gcpkeypoints)
-      matches = flann.knnMatch(gcpdescriptors, scanlinedescriptors, k=2)
-      matches = sorted(matches, key=lambda x: x.distance)
+      matches = bf.knnMatch(gcpdescriptors, scanlinedescriptors, k=2)
       try:
          good = []
          for m, n in matches:
             if m.distance < 0.7 * n.distance:
                good.append(m)
       except Exception, e:
-         print "something went horrifically wrong with flann :S"
+         print "something went horrifically wrong with bfmatcher :S"
 
       #assuming we have 10 good matches or more we can move on to the next stage
       if len(good) > 10:
