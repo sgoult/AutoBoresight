@@ -12,18 +12,16 @@ def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
       coords = pixelcoordinates(point.pt[0], point.pt[1], scanlinetiff)
       for scanline in igmarray[0]:
          for lat in scanline:
-            if ((lat <= (coords[0]+0.7))) && ((lat >= (coords[0]-0.7))):
+            if (lat <= (coords[0]+0.7)) and (lat >= (coords[0]-0.7)):
                insidelat = True
       for scanline in igmarray[1]:
          for long in scanline:
-            if ((long <= (coords[1]+0.0024))) && ((long >= (coords[1]-0.0024))):
+            if (long <= (coords[1]+0.0024)) and (long >= (coords[1]-0.0024)):
                insidelong = True
 
       if insidelong and insidelat:
          insideflightline.append(point)
    return insideflightline
-
-
 
 def tiepointgenerator(scanline1, scanline2):
    bf = cv2.BFMatcher()
