@@ -1,40 +1,46 @@
-from math import *
-from numpy import *
+import math
+import numpy as np
 
-def calculator(imagespacegcps, gcps, navfile):
-   #find pitch and roll using the adjusted gcps
+import IgmParser
+
+def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontrolpoints):
+   #find heading angles
+   headingvalues = []
+   for enum, point in enumerate(externalpoints):
+      centrepx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
+      heading = headingadjust(centrepx, point, sensorpoints[point[0]])
+      headingvalues.append(heading)
+   headingstd = stdfiltering(headingvalues)
+
+   heading = np.mean(headingstd)
+
+   adjustedexternals=[]
+   for enum, point in enumerate(externalpoints):
+      centrepx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
+      adjustedpoint = headingadjust(point, centrepx, heading)
+      adjustedexternals.append(adjustedpoint)
+
+
+
+   #find pitch and roll errors
    pitchvalues = []
    rollvalues = []
-   for gcp in imagespacegcps:
-      pitch, roll = pitchrolladjust()
+   for enum, point in adjustedexternals:
+      centrepx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
+      pitch, roll = pitchrolladjust(centrepx, point, sensorpoints[point[0]], 2000)
       pitchvalues.append(pitch)
       rollvalues.append(roll)
    #find average of pitch roll values
+   pitchstd = stdfiltering(pitchvalues)
+   rollstd = stdfiltering(rollvalues)
 
+   pitch = np.mean(pitchstd)
+   roll = np.mean(rollstd)
 
-   #then we do heading angles
-   headingangles=[]
-   #find the heading correction
-   for sensorgcp in imagespacegcps:
-      #find centre pixel
-      centrepixel=sensorgcp['centrepixel']
-      #identify real gcp position
-      truegcp=gcps[sensorgcp['realgcp']]
-      #find heading angle
-      headingangles.append(headingangle(centrepixel, truegcp, sensorgcp))
-   #find standard deviation
-   headingmean, headingstd = meanstd(headingangles)
+   return pitch, roll, heading
 
-
-   #average heading angles
-   #use final heading value to adjust sensor gcps
-   #for gcp identified in image space
-      #adjusted = headingadjust(angle)
-      #adjustedgcps.append(adjusted)
-   #find pitch and roll using the adjusted gcps
-
-   #reaverage
-   return pitch, roll, headingmean, headingstd
+def stdfiltering(list, f=2):
+   return list[(list - np.median(list)) < f * np.std(list)]
 
 def meanstd(list):
    liststd = std(list)
@@ -91,7 +97,7 @@ def headingangle(centrepixel, truegcp, sensorgcp):
    print "gcpvect"
    print gcpvect
    #create the magnitude (scalar) of the resultant vector
-   gcpmag = sqrt((gcpvect[x]) ** 2 + (gcpvect[y]) ** 2 + (gcpvect[z]) ** 2)
+   gcpmag = math.sqrt((gcpvect[x]) ** 2 + (gcpvect[y]) ** 2 + (gcpvect[z]) ** 2)
    print "gcpmag"
    print gcpmag
 
@@ -110,14 +116,14 @@ def headingangle(centrepixel, truegcp, sensorgcp):
    print dotproduct
 
    #magnitude the results
-   umag = sqrt(((u[x]) ** 2) + ((u[y]) ** 2) + ((u[z]) ** 2))
+   umag = math.sqrt(((u[x]) ** 2) + ((u[y]) ** 2) + ((u[z]) ** 2))
    print "umag"
    print umag
-   vmag = sqrt(((v[x]) ** 2) + ((v[y]) ** 2) + ((v[z]) ** 2))
+   vmag = math.sqrt(((v[x]) ** 2) + ((v[y]) ** 2) + ((v[z]) ** 2))
    print "vmag"
    print vmag
    #this gives us the angle that is less than (pi/2)/90
-   theta = acos(dotproduct / (umag * vmag))
+   theta = math.acos(dotproduct / (umag * vmag))
    print "theta"
    print theta
 
@@ -133,13 +139,13 @@ def headingadjust(truegcp, centrepixel, angle):
    y = 1
    z = 2
 
-   #make the centre pixel the centre pixel the centre of the axis
+   #make the centre pixel the centre of the axis
    gcp = [(truegcp[x] - centrepixel[x]),
           (truegcp[y] - centrepixel[y]),
           (truegcp[z] - centrepixel[z])]
 
-   xadjust = (gcp[x] * cos(angle)) + (gcp[y] * sin(angle))
-   yadjust = (gcp[x] * -sin(angle)) + (gcp[y] * cos(angle))
+   xadjust = (gcp[x] * math.cos(angle)) + (gcp[y] * math.sin(angle))
+   yadjust = (gcp[x] * -math.sin(angle)) + (gcp[y] * math.cos(angle))
    zadjust = gcp[z]
    adjustedgcp = [xadjust, yadjust, zadjust]
 
@@ -149,7 +155,7 @@ def headingadjust(truegcp, centrepixel, angle):
                   (adjustedgcp[z] + centrepixel[z])]
    return adjustedgcp
 
-def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude, demavg):
+def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude):
    #set xyz so that the calcs are a bit more sensible to read
    x = 0
    y = 1
@@ -176,7 +182,7 @@ def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude, demavg):
    print "gcpvect"
    print gcpvect
    #create the magnitude (scalar) of the resultant vector
-   gcpmag = sqrt((gcpvect[x]) ** 2 + (gcpvect[y]) ** 2 + (gcpvect[z]) ** 2)
+   gcpmag = math.sqrt((gcpvect[x]) ** 2 + (gcpvect[y]) ** 2 + (gcpvect[z]) ** 2)
    print "gcpmag"
    print gcpmag
 
@@ -195,28 +201,28 @@ def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude, demavg):
    print dotproduct
 
    #magnitude the results
-   umag = sqrt(((u[x]) ** 2) + ((u[y]) ** 2) + ((u[z]) ** 2))
+   umag = math.sqrt(((u[x]) ** 2) + ((u[y]) ** 2) + ((u[z]) ** 2))
    print "umag"
    print umag
-   vmag = sqrt(((v[x]) ** 2) + ((v[y]) ** 2) + ((v[z]) ** 2))
+   vmag = math.sqrt(((v[x]) ** 2) + ((v[y]) ** 2) + ((v[z]) ** 2))
    print "vmag"
    print vmag
    #this gives us the angle that is less than (pi/2)/90
-   theta = acos(dotproduct / (umag * vmag))
+   theta = math.acos(dotproduct / (umag * vmag))
    print "theta"
    print theta
 
    #finally calculate the lengths of the outer edges Beta and Gamma
-   beta = sin(theta) * gcpmag
+   beta = math.sin(theta) * gcpmag
    print "beta"
    print beta
-   gma = cos(theta) * gcpmag
+   gma = math.cos(theta) * gcpmag
    print "gma"
    print gma
 
    #to work out our pitch and roll adjustments we use beta and gamma respectively to draw an isosceles triangle
    #should take dem average from altitude to get true adjust
-   rolladjust = 2 * (atan(beta / 2) / altitude)
-   pitchadjust = 2 * (atan(gma / 2) / altitude)
+   rolladjust = 2 * (math.atan(beta / 2) / altitude)
+   pitchadjust = 2 * (math.atan(gma / 2) / altitude)
 
    return pitchadjust, rolladjust

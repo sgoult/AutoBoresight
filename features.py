@@ -3,6 +3,26 @@ from numpy import *
 from scipy import ndimage
 from osgeo import gdal
 
+def heightgrabber(igmarray, coords):
+   latshift = sum(diff(igmarray[0][0])) / len(igmarray[0][0])
+   longshift = sum(diff(igmarray[1][0])) / len(igmarray[1][0])
+
+   for scanline in igmarray[0]:
+      for lat in scanline:
+         if (lat <= (coords[0]+latshift)) and (lat >= (coords[0]-longshift)):
+            insidelat = lat
+
+   for scanline in igmarray[1]:
+      for long in scanline:
+         if (long <= (coords[1]+longshift)) and (long >= (coords[1]-longshift)):
+            insidelong = long
+   insidelong = where(igmarray == insidelong)
+   insidelat = where(igmarray == insidelat)
+
+   height = igmarray[2][insidelat[1]][insidelat[2]]
+
+   return height
+
 def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
    insideflightline=[]
    latshift = sum(diff(igmarray[0][0])) / len(igmarray[0][0])
@@ -12,24 +32,31 @@ def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
       coords = pixelcoordinates(point.pt[0], point.pt[1], scanlinetiff)
       for scanline in igmarray[0]:
          for lat in scanline:
-            if (lat <= (coords[0]+0.7)) and (lat >= (coords[0]-0.7)):
+            if (lat <= (coords[0]+latshift)) and (lat >= (coords[0]-latshift)):
                insidelat = True
       for scanline in igmarray[1]:
          for long in scanline:
-            if (long <= (coords[1]+0.0024)) and (long >= (coords[1]-0.0024)):
+            if (long <= (coords[1]+longshift)) and (long >= (coords[1]-longshift)):
                insidelong = True
 
       if insidelong and insidelat:
          insideflightline.append(point)
    return insideflightline
 
-def tiepointgenerator(scanline1, scanline2):
+def tiepointgenerator(scanline1, scanline2, igmarray):
    bf = cv2.BFMatcher()
    sli1 = ndimage.imread(scanline1)
    sli2 = ndimage.imread(scanline1)
    orb = cv2.ORB()
-   slk1, sld1 = orb.detectAndCompute(sli1, None)
+   #create keypoints
+   slk1 = orb.detect(sli1)
+   #filter to within the flightline object
+   slk1 = tiepointfilter(igmarray, slk1)
+   #compute descriptors
+   slk1, sld1 = orb.compute(sli1, slk1)
    slk2, sld2 = orb.detectAndCompute(sli2, None)
+
+
 
    matches = bf.knnMatch(sld1, sld2)
    try:
@@ -50,8 +77,9 @@ def gcpidentifier(scanlinetiff, gcpoints):
    orb = cv2.ORB()
    scanlinekeys = orb.detect(scanlineimg, None)
    scanlinekeys, scanlinedescriptors = orb.compute(scanlineimg, scanlinekeys)
+   gcpsonscanline = []
    for gcp in gcpoints:
-      gcpimg = ndimage.imread(gcp.imgpath)
+      gcpimg = ndimage.imread(gcp[4])
       gcpgrey = cv2.cvtColor(gcpimg, cv2.COLOR_BGR2GRAY)
       gcpkeypoints = orb.detect(gcpgrey, None)
       gcpkeypoints, gcpdescriptors = orb.compute(gcpgrey, gcpkeypoints)
@@ -86,7 +114,10 @@ def gcpidentifier(scanlinetiff, gcpoints):
          matchesMask = None
 
       gcpcentre = intersect(pts)
-      gcponscanline = pixelcoordinates(gcpcentre[0], gcpcentre[1], scanlinetiff)
+      gcploc = pixelcoordinates(gcpcentre[0], gcpcentre[1], scanlinetiff)
+      gcpsonscanline.append([gcp[0], gcploc[0], gcploc[1]])
+
+   return gcpsonscanline
 
 def intersect(points):
   """this 'should' work for a square or nearly square shape. If its not we might get an iffy return.
