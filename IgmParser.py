@@ -19,27 +19,51 @@ def centerpixel(bilarray, point):
       raise IOError, "this file has too many bands for an igm file"
 
    centerpx = (width / 2) - 1
-
    scanline=[]
-   scanline.append(np.where(bilarray == point))
+   latlow = -1
+   latscanlines = []
+   for enum, scanline in enumerate(bilarray[0]):
+      latidx = (np.abs(scanline - point[1])).argmin()
+      if latidx != 951 and latidx != 0:
+         latmin=scanline[latidx]
+         # if abs(latmin-point[1]) <= abs(latlow-point[1]):
+         latscanlines.append(enum)
+         # latlow=latmin
 
-   scanline=[]
-   print scanline
+   longlow = -1
+   longscanlines=[]
+   for enum, scanline in enumerate(bilarray[1]):
+      longidx = (np.abs(scanline - point[0])).argmin()
+      if longidx != 951 and longidx != 0:
+         longmin = scanline[longidx]
+         # if abs(longmin-point[0]) <= abs(longlow-point[0]):
+         longscanlines.append(enum)
+         # longlow=longmin
 
-   if len(set(scanline)) <= 1:
+
+   scanlinenumber = None
+   for latscan in latscanlines:
+      for longscan in longscanlines:
+         if longscan == latscan:
+            scanlinenumber = longscan
+
+   if scanlinenumber is not None:
+
       #gets the centre pixel location of any given scanline -1 so that it references correct array cent
       centerpx = (width / 2) - 1
 
-      center = [bilarray[0][scanline[0][1]][centerpx], bilarray[1][scanline[1][1]][centerpx], bilarray[2][scanline[2][1]][centerpx]]
+      center = [bilarray[0][scanlinenumber][centerpx],
+                bilarray[1][scanlinenumber][centerpx],
+                bilarray[2][scanlinenumber][centerpx]]
 
-      centerahead = [bilarray[0][scanline[0][1] + 1][centerpx],
-                     bilarray[1][scanline[1][1] + 1][centerpx],
-                     bilarray[2][scanline[2][1] + 1][centerpx]]
+      centerahead = [bilarray[0][scanlinenumber + 1][centerpx],
+                     bilarray[1][scanlinenumber + 1][centerpx],
+                     bilarray[2][scanlinenumber + 1][centerpx]]
 
-      if scanline[0][1] > 0:
-         centerbehind = [bilarray[0][scanline[0][1] - 1][centerpx],
-                         bilarray[1][scanline[1][1] - 1][centerpx],
-                         bilarray[2][scanline[2][1] - 1][centerpx]]
+      if scanlinenumber > 0:
+         centerbehind = [bilarray[0][scanlinenumber - 1][centerpx],
+                         bilarray[1][scanlinenumber - 1][centerpx],
+                         bilarray[2][scanlinenumber - 1][centerpx]]
          bearing1 = bearingEstimator(centerbehind, centerahead)
          bearing2 = bearingEstimator(center, centerahead)
          bearing3 = bearingEstimator(centerbehind, center)
@@ -50,12 +74,9 @@ def centerpixel(bilarray, point):
          bearing = bearingEstimator(center, centerahead)
 
       center.append(bearing)
-
       return center
-
    else:
-      raise Exception, "Point %s couldn't identify the scanline number, one value was out of position with the others" % point
-
+      return None
 
 def bearingEstimator(point1, point2):
    deltae = point2[0] - point1[0]

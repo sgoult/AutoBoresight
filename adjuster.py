@@ -8,9 +8,12 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
    #find heading angles
    headingvalues = []
    for enum, point in enumerate(externalpoints):
+      cont = True
       centrepx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
-      heading = headingadjust(centrepx, point, sensorpoints[point[0]])
-      headingvalues.append(heading)
+      if centrepx:
+         heading = headingangle(centrepx, point, sensorpoints[point[0] - 1])
+         headingvalues.append(heading)
+   print headingvalues
    headingstd = stdfiltering(headingvalues)
 
    heading = np.mean(headingstd)
@@ -41,6 +44,7 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
    return pitch, roll, heading
 
 def stdfiltering(list, f=2):
+   print list
    return list[(list - np.median(list)) < f * np.std(list)]
 
 def meanstd(list):
@@ -81,7 +85,8 @@ def headingangle(centrepixel, truegcp, sensorgcp):
    #centerpixel=array([x,y,z])
    #truegcp=array([x,y,z])
    #sensorgcp=array([x,y,z])
-
+   sensorgcp=sensorgcp[1:]
+   print sensorgcp
    #create the vector of the scanline direction
    sensorvect = [(sensorgcp[x] - centrepixel[x]),
                  (sensorgcp[y] - centrepixel[y]),
@@ -134,16 +139,16 @@ def headingangle(centrepixel, truegcp, sensorgcp):
    return theta
 
 #should have found the heading angle first
-def headingadjust(truegcp, centrepixel, angle):
+def headingadjust(point, centrepixel, angle):
    #this is not right
-   x = 0
-   y = 1
-   z = 2
-
+   x = 1
+   y = 2
+   z = 3
+   print angle
    #make the centre pixel the centre of the axis
-   gcp = [(truegcp[x] - centrepixel[x]),
-          (truegcp[y] - centrepixel[y]),
-          (truegcp[z] - centrepixel[z])]
+   gcp = [(point[x] - centrepixel[x]),
+          (point[y] - centrepixel[y]),
+          (point[z] - centrepixel[z])]
 
    xadjust = (gcp[x] * math.cos(angle)) + (gcp[y] * math.sin(angle))
    yadjust = (gcp[x] * -math.sin(angle)) + (gcp[y] * math.cos(angle))
@@ -151,16 +156,16 @@ def headingadjust(truegcp, centrepixel, angle):
    adjustedgcp = [xadjust, yadjust, zadjust]
 
    #add the centre pixel back on to bring it in to context
-   adjustedgcp = [(adjustedgcp[x] + centrepixel[x]),
+   adjustedpoint = [(adjustedgcp[x] + centrepixel[x]),
                   (adjustedgcp[y] + centrepixel[y]),
                   (adjustedgcp[z] + centrepixel[z])]
-   return adjustedgcp
+   return adjustedpoint
 
 def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude):
    #set xyz so that the calcs are a bit more sensible to read
-   x = 0
-   y = 1
-   z = 2
+   x = 1
+   y = 2
+   z = 3
 
    #set for testing
    #centerpixel=array([x,y,z])
