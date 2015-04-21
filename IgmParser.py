@@ -21,10 +21,10 @@ def centerpixel(bilarray, point):
    centerpx = (width / 2) - 1
 
    scanline=[]
-   for loc, band in point, bands:
-      scanline.append(np.where(bilarray == loc))
+   scanline.append(np.where(bilarray == point))
 
    scanline=[]
+   print scanline
 
    if len(set(scanline)) <= 1:
       #gets the centre pixel location of any given scanline -1 so that it references correct array cent

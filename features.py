@@ -1,70 +1,86 @@
+#!/usr/bin/env python
 import cv2
-from numpy import *
+import numpy as np
 from scipy import ndimage
 from osgeo import gdal
 
 def heightgrabber(igmarray, coords):
-   latshift = sum(diff(igmarray[0][0])) / len(igmarray[0][0])
-   longshift = sum(diff(igmarray[1][0])) / len(igmarray[1][0])
+   latlow = -1
+   latlowidx = 0
+   for enum, scanline in enumerate(igmarray[0]):
+      latidx = (np.abs(scanline - coords[1])).argmin()
+      latmin=scanline[latidx]
+      if abs(latmin-coords[1]) <= abs(latlow-coords[1]):
+         latlow=latmin
+         if latlow != -1:
+            latlowidx = latidx
+            latscanline = enum
+   longlow = -1
+   longlowidx=0
+   for enum, scanline in enumerate(igmarray[1]):
+      longidx = (np.abs(scanline - coords[0])).argmin()
+      longmin=scanline[longidx]
+      if abs(longmin-coords[0]) <= abs(longlow-coords[0]):
+         longlow=longmin
+         if longlow != 0:
+            longlowidx=longidx
+            longscanline=enum
 
-   for scanline in igmarray[0]:
-      for lat in scanline:
-         if (lat <= (coords[0]+latshift)) and (lat >= (coords[0]-longshift)):
-            insidelat = lat
-
-   for scanline in igmarray[1]:
-      for long in scanline:
-         if (long <= (coords[1]+longshift)) and (long >= (coords[1]-longshift)):
-            insidelong = long
-   insidelong = where(igmarray == insidelong)
-   insidelat = where(igmarray == insidelat)
-
-   height = igmarray[2][insidelat[1]][insidelat[2]]
-
+   height = igmarray[2][longscanline][longlowidx]
    return height
 
 def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
    insideflightline=[]
-   latshift = sum(diff(igmarray[0][0])) / len(igmarray[0][0])
-   longshift = sum(diff(igmarray[1][0])) / len(igmarray[1][0])
+   latshift = np.sum(np.diff(igmarray[0][0])) / len(igmarray[0][0]) *10
+   longshift = np.sum(np.diff(igmarray[1][0])) / len(igmarray[1][0]) *1000
+   print longshift
+   print latshift
 
+   insidelong = False
+   insidelat = False
    for point in keypointsarray:
       coords = pixelcoordinates(point.pt[0], point.pt[1], scanlinetiff)
       for scanline in igmarray[0]:
-         for lat in scanline:
-            if (lat <= (coords[0]+latshift)) and (lat >= (coords[0]-latshift)):
-               insidelat = True
-      for scanline in igmarray[1]:
-         for long in scanline:
-            if (long <= (coords[1]+longshift)) and (long >= (coords[1]-longshift)):
-               insidelong = True
+         latmin = np.amin(scanline)
+         latmax = np.amax(scanline)
+         if latmin <= coords[1] and latmax >= coords[1]:
+            insidelat =  True
 
-      if insidelong and insidelat:
+      for scanline in igmarray[1]:
+         longmin = np.amin(scanline)
+         longmax = np.amax(scanline)
+         if longmin <= coords[0] and longmax >= coords[0]:
+            insidelong = True
+
+      if insidelat and insidelong:
          insideflightline.append(point)
    return insideflightline
 
 def tiepointgenerator(scanline1, scanline2, igmarray):
    bf = cv2.BFMatcher()
-   sli1 = ndimage.imread(scanline1)
-   sli2 = ndimage.imread(scanline1)
+   sli1 = cv2.imread(scanline1)
+   sli2 = cv2.imread(scanline2)
    orb = cv2.ORB()
    #create keypoints
    slk1 = orb.detect(sli1)
    #filter to within the flightline object
-   slk1 = tiepointfilter(igmarray, slk1)
+   scanlinegdal = gdal.Open(scanline1)
+   print len(slk1)
+   slk1 = tiepointfilter(igmarray, slk1, scanlinegdal)
+   print len(slk1)
    #compute descriptors
    slk1, sld1 = orb.compute(sli1, slk1)
    slk2, sld2 = orb.detectAndCompute(sli2, None)
 
+   matches = bf.knnMatch(sld1, sld2, k=2)
 
-
-   matches = bf.knnMatch(sld1, sld2)
    try:
       good = []
       for m, n in matches:
          if m.distance < 0.7 * n.distance:
             good.append(m)
    except Exception, e:
+      print e
       print "something went horrifically wrong with bfmatcher :S"
 
    return slk1, slk2, good
@@ -94,8 +110,8 @@ def gcpidentifier(scanlinetiff, gcpoints):
 
       #assuming we have 10 good matches or more we can move on to the next stage
       if len(good) > 10:
-         src_pts = float32([gcpkeypoints[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-         dst_pts = float32([gcpkeypoints[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+         src_pts = np.float32([gcpkeypoints[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+         dst_pts = np.float32([gcpkeypoints[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
          homography_matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
 
@@ -105,7 +121,7 @@ def gcpidentifier(scanlinetiff, gcpoints):
          h, w = gcpimg.shape
 
          #use the image shape to build a metric shape
-         pts = float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
+         pts = np.float32([[0, 0], [0, h - 1], [w - 1, h - 1], [w - 1, 0]]).reshape(-1, 1, 2)
 
          #transform our image into the the new plane
          destinationpoints = cv2.perspectiveTransform(pts, homography_matrix)

@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os, sys, argparse
 import GcpParser
 import features
@@ -9,12 +10,18 @@ from osgeo import gdal
 
 def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output):
    #associate gcps in the commandline ingest
+   igmfiles = os.listdir(igmfolder)
+   #if we have a gcpcsv then do stuff
    if gcpcsv:
       gcparray = GcpParser.GcpGrabber(gcpcsv)
       gcparray = GcpParser.GcpImageAssociator(gcparray, gcpfolder)
-   adjust = []
-   for flightline in scanlinefolder:
-      igmarray = IgmParser.bilreader(igmfolder[np.where()])
+      adjust = []
+   else:
+      gcparray = None
+   for flightline in os.listdir(scanlinefolder):
+      igmfile = [x for x in igmfiles if flightline[:9] in x and 'osng' in x and 'igm' in x and 'hdr' not in x][0]
+      flightline = (scanlinefolder + '/' + flightline)
+      igmarray = IgmParser.bilreader(igmfolder + '/' + igmfile)
       #produce matches to gcps
       if gcparray:
          scanlinegcps = features.gcpidentifier(flightline, gcparray)
@@ -29,32 +36,39 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
                                               filteredgcps,
                                               igmarray,
                                               groundcontrolpoints=True)
-
+      #this will always be run regardless if the gcps are there
       scanlineadjustments = []
-      for scanline in scanlinefolder:
+      for scanline in os.listdir(scanlinefolder):
+         print scanline
          #need to test if they have the same filename otherwise it would be bad
          if scanline != flightline:
-            try:
-               slk1, slk2, matches = features.tiepointgenerator(flightline, scanline)
-               online=[]
-               offline=[]
-               i=1
-               for match in matches:
-                  #creates ordered lists of the matched points
-                  coords = features.pixelcoords(slk1[match.queryIdx], flightline)
-                  coords = features.heightgrabber(igmarray, coords)
-                  online.append(i, coords)
-                  coords = features.pixelcoords(slk2[match.trainIdx], flightline)
-                  coords = features.heightgrabber(igmarray, coords)
-                  offline.append(i, coords)
-                  i+=1
-               scanlineadjustments.append(adjuster.calculator(flightline,
-                                                              online,
-                                                              offline,
-                                                              igmarray,
-                                                              groundcontrolpoints=False))
-            except:
-               print "no match found between %s and %s" % flightline, scanline
+            scanline = scanlinefolder + '/' + scanline
+            #try:
+            slk1, slk2, matches = features.tiepointgenerator(flightline, scanline, igmarray)
+            online=[]
+            offline=[]
+            i=1
+            for match in matches:
+               #creates ordered lists of the matched points
+               gdalscanline = gdal.Open(scanline)
+               gdalflightline = gdal.Open(flightline)
+
+               onlinecoords = features.pixelcoordinates(slk1[match.queryIdx].pt[0], slk1[match.queryIdx].pt[1], gdalflightline)
+               onlinecoordsheight = features.heightgrabber(igmarray, onlinecoords)
+               online.append([i, onlinecoords[0], onlinecoords[1], onlinecoordsheight])
+
+               offlinecoords = features.pixelcoordinates(slk2[match.trainIdx].pt[0], slk2[match.trainIdx].pt[1], gdalscanline)
+               offlinecoordsheight = features.heightgrabber(igmarray, offlinecoords)
+               offline.append([i, offlinecoords[0], offlinecoords[1], offlinecoordsheight])
+               i+=1
+            scanlineadjustments.append(adjuster.calculator(flightline,
+                                                           online,
+                                                           offline,
+                                                           igmarray,
+                                                           groundcontrolpoints=False))
+            #except Exception, e:
+               #print e
+               #print "no match found between %s and %s" % (flightline, scanline)
 
       p = 0
       r = 0
@@ -127,27 +141,31 @@ if __name__=='__main__':
                        metavar="<txtfile>")
    commandline=parser.parse_args()
 
-   if os.path.exists(commandline.i):
-      igmlist = os.listdir(commandline.i)
+   if os.path.exists(commandline.igmfolder):
+      igmlist = os.path.abspath(commandline.igmfolder)
    else:
       print "igm folder required, use -i or --igmfolder"
+      exit(0)
 
-   if os.path.exists(commandline.t):
-      gtifflist = os.listdir(commandline.t)
+   if os.path.exists(commandline.geotiffs):
+      gtifflist = os.path.abspath(commandline.geotiffs)
    else:
       print "geotiff folder required, use -t or --geotiffs"
+      exit(0)
 
-   if os.path.exists(commandline.n):
-      navfile = commandline.n
+   if os.path.exists(commandline.navfile):
+      navfile = os.path.abspath(commandline.navfile)
    else:
       print "nav file required, use -n or --navfile"
+      exit(0)
 
-   if commandline.g or commandline.a:
-      if not commandline.g or not commandline.a:
+   if commandline.gcps or commandline.gcpimages:
+      if not commandline.gcps or not commandline.gcpimages:
          print "gcp csv or gcp images folder not present"
+         exit(0)
       else:
-         gcpimagesfolder = commandline.a
-         gcpcsv = commandline.g
+         gcpimagesfolder = commandline.gcpimages
+         gcpcsv = commandline.gcps
 
       boresight = autoboresight(gtifflist, gcpimagesfolder, gcpcsv, igmlist, navfile, None)
    else:
