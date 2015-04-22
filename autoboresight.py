@@ -36,6 +36,8 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
                                               filteredgcps,
                                               igmarray,
                                               groundcontrolpoints=True)
+      else:
+         gcpadjustments=None
       #this will always be run regardless if the gcps are there
       scanlineadjustments = []
       for scanline in os.listdir(scanlinefolder):
@@ -73,6 +75,7 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
       p = 0
       r = 0
       h = 0
+      adjust = []
       for adjustment in scanlineadjustments:
          p + adjustment[0]
          r + adjustment[1]
@@ -103,8 +106,9 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
    p = p / length
    r = r / length
    h = h / length
-
+   print "pitch, roll, heading"
    print p, r, h
+   return p, r, h
 
 if __name__=='__main__':
    #Get the input arguments

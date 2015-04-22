@@ -7,44 +7,62 @@ import IgmParser
 def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontrolpoints):
    #find heading angles
    headingvalues = []
+   print "calculating heading..."
    for enum, point in enumerate(externalpoints):
       cont = True
-      centrepx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
-      if centrepx:
-         heading = headingangle(centrepx, point, sensorpoints[point[0] - 1])
+      centerpx = None
+      centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
+      if centerpx:
+         heading = headingangle(centerpx, point, sensorpoints[point[0] - 1])
          headingvalues.append(heading)
-   print headingvalues
    headingstd = stdfiltering(headingvalues)
 
    heading = np.mean(headingstd)
 
+   print "adjusting points..."
    adjustedexternals=[]
    for enum, point in enumerate(externalpoints):
-      centrepx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
-      adjustedpoint = headingadjust(point, centrepx, heading)
-      adjustedexternals.append(adjustedpoint)
+      centerpx = None
+      centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
+      if centerpx:
+         adjustedpoint = headingadjust(point[1:], centerpx, heading)
+         adjustedexternals.append([point[0], adjustedpoint[0], adjustedpoint[1], adjustedpoint[2]])
+   adjustedexternals=np.array(adjustedexternals)
 
 
 
    #find pitch and roll errors
+   print "calculating pitch and roll..."
    pitchvalues = []
    rollvalues = []
-   for enum, point in adjustedexternals:
-      centrepx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
-      pitch, roll = pitchrolladjust(centrepx, point, sensorpoints[point[0]], 2000)
-      pitchvalues.append(pitch)
-      rollvalues.append(roll)
+   for enum, point in enumerate(externalpoints):
+      centerpx = None
+      centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
+      if centerpx:
+         pitch, roll = pitchrolladjust(centerpx, point, sensorpoints[point[0] - 1], 2000)
+         if math.isnan(pitch) and math.isnan(roll):
+            continue
+         else:
+            # print pitch
+            # print roll
+            pitchvalues.append(pitch)
+            rollvalues.append(roll)
    #find average of pitch roll values
-   pitchstd = stdfiltering(pitchvalues)
-   rollstd = stdfiltering(rollvalues)
+   # print pitchvalues
+   # print rollvalues
+   print "filtering pitch and roll for outliers..."
+   pitchstd = stdfiltering(np.array(pitchvalues))
+   rollstd = stdfiltering(np.array(rollvalues))
 
+   print "producing pitch and roll means"
    pitch = np.mean(pitchstd)
    roll = np.mean(rollstd)
-
+   # print pitch
+   # print roll
    return pitch, roll, heading
 
 def stdfiltering(list, f=2):
-   print list
+   list=np.array(list)
    return list[(list - np.median(list)) < f * np.std(list)]
 
 def meanstd(list):
@@ -65,12 +83,12 @@ def stdsmoothcheck(list, liststd):
          smoothed = False
    return smoothed
 
-def headingangle(centrepixel, truegcp, sensorgcp):
+def headingangle(centerpixel, truegcp, sensorgcp):
    #set xyz so that the calcs are a bit more sensible to read
    """
-   generates heading angles from the centre pixel for each
+   generates heading angles from the center pixel for each
 
-   :param centrepixel:
+   :param centerpixel:
    :param truegcp:
    :param sensorgcp:
    :param altitude:
@@ -80,58 +98,62 @@ def headingangle(centrepixel, truegcp, sensorgcp):
    x = 0
    y = 1
    z = 2
-
+   print "center"
+   print centerpixel
+   print "true"
+   print truegcp
+   print "sensor"
+   print sensorgcp
    #set for testing
    #centerpixel=array([x,y,z])
    #truegcp=array([x,y,z])
    #sensorgcp=array([x,y,z])
    sensorgcp=sensorgcp[1:]
-   print sensorgcp
    #create the vector of the scanline direction
-   sensorvect = [(sensorgcp[x] - centrepixel[x]),
-                 (sensorgcp[y] - centrepixel[y]),
-                 (sensorgcp[z] - centrepixel[z])]
-   print "sensorvect"
-   print sensorvect
+   sensorvect = [(sensorgcp[x] - centerpixel[x]),
+                 (sensorgcp[y] - centerpixel[y]),
+                 (sensorgcp[z] - centerpixel[z])]
+   # print "sensorvect"
+   # print sensorvect
 
    #create the vector of the scanline direction
 
    #create the vector of the ground control point from its position in sensor space
-   gcpvect = [(truegcp[x] - centrepixel[x]),
-              (truegcp[y] - centrepixel[y]),
-              (truegcp[z] - centrepixel[z])]
-   print "gcpvect"
-   print gcpvect
+   gcpvect = [(truegcp[x] - centerpixel[x]),
+              (truegcp[y] - centerpixel[y]),
+              (truegcp[z] - centerpixel[z])]
+   # print "gcpvect"
+   # print gcpvect
    #create the magnitude (scalar) of the resultant vector
    gcpmag = math.sqrt((gcpvect[x]) ** 2 + (gcpvect[y]) ** 2 + (gcpvect[z]) ** 2)
-   print "gcpmag"
-   print gcpmag
+   # print "gcpmag"
+   # print gcpmag
 
    #calculation of the angle at which the gcp offsets the scanline
    #create a new pair of vectors based on what we already know
    u = gcpvect
-   print "u"
-   print u
+   # print "u"
+   # print u
    v = sensorvect
-   print "v"
-   print v
+   # print "v"
+   # print v
 
    #dotproduct
    dotproduct = (u[x] * v[x]) + (u[y] * v[y]) + (u[z] * v[z])
-   print "dotproduct"
-   print dotproduct
+   # print "dotproduct"
+   # print dotproduct
 
    #magnitude the results
    umag = math.sqrt(((u[x]) ** 2) + ((u[y]) ** 2) + ((u[z]) ** 2))
-   print "umag"
-   print umag
+   # print "umag"
+   # print umag
    vmag = math.sqrt(((v[x]) ** 2) + ((v[y]) ** 2) + ((v[z]) ** 2))
-   print "vmag"
-   print vmag
+   # print "vmag"
+   # print vmag
    #this gives us the angle that is less than (pi/2)/90
    theta = math.acos(dotproduct / (umag * vmag))
-   print "theta"
-   print theta
+   # print "theta"
+   # print theta
 
    #to work out our pitch and roll adjustments we use beta and gamma respectively to draw an isosceles triangle
    #should take dem average from altitude to get true adjust
@@ -139,33 +161,33 @@ def headingangle(centrepixel, truegcp, sensorgcp):
    return theta
 
 #should have found the heading angle first
-def headingadjust(point, centrepixel, angle):
+def headingadjust(point, centerpixel, angle):
    #this is not right
-   x = 1
-   y = 2
-   z = 3
-   print angle
-   #make the centre pixel the centre of the axis
-   gcp = [(point[x] - centrepixel[x]),
-          (point[y] - centrepixel[y]),
-          (point[z] - centrepixel[z])]
+   x = 0
+   y = 1
+   z = 2
+   #make the center pixel the center of the axis
+
+   gcp = [(point[x] - centerpixel[x]),
+          (point[y] - centerpixel[y]),
+          (point[z] - centerpixel[z])]
 
    xadjust = (gcp[x] * math.cos(angle)) + (gcp[y] * math.sin(angle))
    yadjust = (gcp[x] * -math.sin(angle)) + (gcp[y] * math.cos(angle))
    zadjust = gcp[z]
    adjustedgcp = [xadjust, yadjust, zadjust]
 
-   #add the centre pixel back on to bring it in to context
-   adjustedpoint = [(adjustedgcp[x] + centrepixel[x]),
-                  (adjustedgcp[y] + centrepixel[y]),
-                  (adjustedgcp[z] + centrepixel[z])]
+   #add the center pixel back on to bring it in to context
+   adjustedpoint = [(adjustedgcp[x] + centerpixel[x]),
+                  (adjustedgcp[y] + centerpixel[y]),
+                  (adjustedgcp[z] + centerpixel[z])]
    return adjustedpoint
 
-def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude):
+def pitchrolladjust(centerpixel, truegcp, sensorgcp, altitude):
    #set xyz so that the calcs are a bit more sensible to read
-   x = 1
-   y = 2
-   z = 3
+   x = 0
+   y = 1
+   z = 2
 
    #set for testing
    #centerpixel=array([x,y,z])
@@ -173,11 +195,11 @@ def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude):
    #sensorgcp=array([x,y,z])
 
    #create the vector of the scanline direction
-   sensorvect = [(sensorgcp[x] - centrepixel[x]),
-                 (sensorgcp[y] - centrepixel[y]),
-                 (sensorgcp[z] - centrepixel[z])]
-   print "sensorvect"
-   print sensorvect
+   sensorvect = [(sensorgcp[x] - centerpixel[x]),
+                 (sensorgcp[y] - centerpixel[y]),
+                 (sensorgcp[z] - centerpixel[z])]
+   # print "sensorvect"
+   # print sensorvect
 
    #create the vector of the scanline direction
 
@@ -185,46 +207,46 @@ def pitchrolladjust(centrepixel, truegcp, sensorgcp, altitude):
    gcpvect = [(truegcp[x] - sensorgcp[x]),
               (truegcp[y] - sensorgcp[y]),
               (truegcp[z] - sensorgcp[z])]
-   print "gcpvect"
-   print gcpvect
+   # print "gcpvect"
+   # print gcpvect
    #create the magnitude (scalar) of the resultant vector
    gcpmag = math.sqrt((gcpvect[x]) ** 2 + (gcpvect[y]) ** 2 + (gcpvect[z]) ** 2)
-   print "gcpmag"
-   print gcpmag
+   # print "gcpmag"
+   # print gcpmag
 
    #calculation of the angle at which the gcp offsets the scanline
    #create a new pair of vectors based on what we already know
    u = gcpvect
-   print "u"
-   print u
+   # print "u"
+   # print u
    v = sensorvect
-   print "v"
-   print v
+   # print "v"
+   # print v
 
    #dotproduct
    dotproduct = (u[x] * v[x]) + (u[y] * v[y]) + (u[z] * v[z])
-   print "dotproduct"
-   print dotproduct
+   # print "dotproduct"
+   # print dotproduct
 
    #magnitude the results
    umag = math.sqrt(((u[x]) ** 2) + ((u[y]) ** 2) + ((u[z]) ** 2))
-   print "umag"
-   print umag
+   # print "umag"
+   # print umag
    vmag = math.sqrt(((v[x]) ** 2) + ((v[y]) ** 2) + ((v[z]) ** 2))
-   print "vmag"
-   print vmag
-   #this gives us the angle that is less than (pi/2)/90
+   # print "vmag"
+   # print vmag
+   # this gives us the angle that is less than (pi/2)/90
    theta = math.acos(dotproduct / (umag * vmag))
-   print "theta"
-   print theta
+   # print "theta"
+   # print theta
 
    #finally calculate the lengths of the outer edges Beta and Gamma
    beta = math.sin(theta) * gcpmag
-   print "beta"
-   print beta
+   # print "beta"
+   # print beta
    gma = math.cos(theta) * gcpmag
-   print "gma"
-   print gma
+   # print "gma"
+   # print gma
 
    #to work out our pitch and roll adjustments we use beta and gamma respectively to draw an isosceles triangle
    #should take dem average from altitude to get true adjust

@@ -21,31 +21,39 @@ def centerpixel(bilarray, point):
    centerpx = (width / 2) - 1
    scanline=[]
    latlow = -1
-   latscanlines = []
+   scanlines = []
    for enum, scanline in enumerate(bilarray[0]):
-      latidx = (np.abs(scanline - point[1])).argmin()
+      latidx = (np.abs(scanline - point[0])).argmin()
       if latidx != 951 and latidx != 0:
          latmin=scanline[latidx]
+         longmin = abs(point[1] - bilarray[1][enum][latidx])
+         if longmin < 6:
          # if abs(latmin-point[1]) <= abs(latlow-point[1]):
-         latscanlines.append(enum)
+            scanlines.append([enum, longmin])
          # latlow=latmin
 
    longlow = -1
-   longscanlines=[]
-   for enum, scanline in enumerate(bilarray[1]):
-      longidx = (np.abs(scanline - point[0])).argmin()
-      if longidx != 951 and longidx != 0:
-         longmin = scanline[longidx]
-         # if abs(longmin-point[0]) <= abs(longlow-point[0]):
-         longscanlines.append(enum)
+   # longscanlines=[]
+   # for enum, scanline in enumerate(bilarray[1]):
+   #    longidx = (np.abs(scanline - point[1])).argmin()
+   #    if longidx != 951 and longidx != 0:
+   #       longmin = scanline[longidx]
+   #       if abs(longmin-point[0]) <= abs(longlow-point[0]):
+         # longscanlines.append(enum)
          # longlow=longmin
-
-
+   minimum=10
    scanlinenumber = None
-   for latscan in latscanlines:
-      for longscan in longscanlines:
-         if longscan == latscan:
-            scanlinenumber = longscan
+   for idx in scanlines:
+      idxminimum = idx[1]
+      if idxminimum < minimum:
+         minimum = idxminimum
+         scanlinenumber = idx[0]
+
+   # scanlinenumber = None
+   # for latscan in latscanlines:
+   #    for longscan in longscanlines:
+   #       if longscan == latscan:
+   #          scanlinenumber = longscan
 
    if scanlinenumber is not None:
 

@@ -8,9 +8,9 @@ def heightgrabber(igmarray, coords):
    latlow = -1
    latlowidx = 0
    for enum, scanline in enumerate(igmarray[0]):
-      latidx = (np.abs(scanline - coords[1])).argmin()
+      latidx = (np.abs(scanline - coords[0])).argmin()
       latmin=scanline[latidx]
-      if abs(latmin-coords[1]) <= abs(latlow-coords[1]):
+      if abs(latmin-coords[0]) <= abs(latlow-coords[0]):
          latlow=latmin
          if latlow != -1:
             latlowidx = latidx
@@ -18,9 +18,9 @@ def heightgrabber(igmarray, coords):
    longlow = -1
    longlowidx=0
    for enum, scanline in enumerate(igmarray[1]):
-      longidx = (np.abs(scanline - coords[0])).argmin()
+      longidx = (np.abs(scanline - coords[1])).argmin()
       longmin=scanline[longidx]
-      if abs(longmin-coords[0]) <= abs(longlow-coords[0]):
+      if abs(longmin-coords[1]) <= abs(longlow-coords[0]):
          longlow=longmin
          if longlow != 0:
             longlowidx=longidx
@@ -31,10 +31,10 @@ def heightgrabber(igmarray, coords):
 
 def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
    insideflightline=[]
-   latshift = np.sum(np.diff(igmarray[0][0])) / len(igmarray[0][0]) *10
-   longshift = np.sum(np.diff(igmarray[1][0])) / len(igmarray[1][0]) *1000
-   print longshift
-   print latshift
+   # latshift = np.sum(np.diff(igmarray[0][0])) / len(igmarray[0][0]) *10
+   # longshift = np.sum(np.diff(igmarray[1][0])) / len(igmarray[1][0]) *1000
+   # print longshift
+   # print latshift
 
    insidelong = False
    insidelat = False
@@ -43,13 +43,13 @@ def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
       for scanline in igmarray[0]:
          latmin = np.amin(scanline)
          latmax = np.amax(scanline)
-         if latmin <= coords[1] and latmax >= coords[1]:
+         if latmin <= coords[0] and latmax >= coords[0]:
             insidelat =  True
 
       for scanline in igmarray[1]:
          longmin = np.amin(scanline)
          longmax = np.amax(scanline)
-         if longmin <= coords[0] and longmax >= coords[0]:
+         if longmin <= coords[1] and longmax >= coords[1]:
             insidelong = True
 
       if insidelat and insidelong:
@@ -65,9 +65,7 @@ def tiepointgenerator(scanline1, scanline2, igmarray):
    slk1 = orb.detect(sli1)
    #filter to within the flightline object
    scanlinegdal = gdal.Open(scanline1)
-   print len(slk1)
    slk1 = tiepointfilter(igmarray, slk1, scanlinegdal)
-   print len(slk1)
    #compute descriptors
    slk1, sld1 = orb.compute(sli1, slk1)
    slk2, sld2 = orb.detectAndCompute(sli2, None)
@@ -158,6 +156,6 @@ def intersect(points):
 
 def pixelcoordinates(x, y, scanlinetiff):
    xoff, a, b, yoff, d, e = scanlinetiff.GetGeoTransform()
-   long = a * x + b * y + xoff
-   lat = d * x + e * y + yoff
-   return lat, long
+   easting = a * x + b * y + xoff
+   northing = d * x + e * y + yoff
+   return easting, northing
