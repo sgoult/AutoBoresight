@@ -78,7 +78,7 @@ def tiepointgenerator(scanline1, scanline2, igmarray):
    try:
       good = []
       for m, n in matches:
-         if m.distance < 70 * n.distance:
+         if m.distance < 7 * n.distance:
             good.append(m)
    except Exception, e:
       print e

@@ -138,9 +138,9 @@ def headingangle(centerpixel, truegcp, sensorgcp):
    # print "vmag"
    # print vmag
    #this gives us the angle that is less than (pi/2)/90
-   theta = math.radians(math.acos(dotproduct / (umag * vmag)))
-   # print "theta"
-   # print theta
+   theta = math.acos(dotproduct / (umag * vmag))
+   if theta > (math.pi / 2):
+      theta = math.pi - theta
 
    #to work out our pitch and roll adjustments we use beta and gamma respectively to draw an isosceles triangle
    #should take dem average from altitude to get true adjust
@@ -175,7 +175,12 @@ def pitchrolladjust(centerpixel, truegcp, sensorgcp, altitude):
    x = 0
    y = 1
    z = 2
-
+   print "centerpixel"
+   print centerpixel
+   print "sensorgcp"
+   print sensorgcp
+   print "truegcp"
+   print truegcp
    #set for testing
    #centerpixel=array([x,y,z])
    #truegcp=array([x,y,z])
@@ -197,6 +202,7 @@ def pitchrolladjust(centerpixel, truegcp, sensorgcp, altitude):
    # print gcpvect
    #create the magnitude (scalar) of the resultant vector
    gcpmag = math.sqrt((gcpvect[x]) ** 2 + (gcpvect[y]) ** 2 + (gcpvect[z]) ** 2)
+
    # print "gcpmag"
    # print gcpmag
 
@@ -211,38 +217,33 @@ def pitchrolladjust(centerpixel, truegcp, sensorgcp, altitude):
 
    #dotproduct
    dotproduct = (u[x] * v[x]) + (u[y] * v[y]) + (u[z] * v[z])
+
    # print "dotproduct"
    # print dotproduct
 
    #magnitude the results
    umag = math.sqrt(((u[x]) ** 2) + ((u[y]) ** 2) + ((u[z]) ** 2))
+
    # print "umag"
    vmag = math.sqrt(((v[x]) ** 2) + ((v[y]) ** 2) + ((v[z]) ** 2))
+
    # print "vmag"
    # print vmag
    # this gives us the angle that is less than (pi/2)/90
-   theta = math.acos(abs(dotproduct) / (abs(umag) * abs(vmag)))
-   # print "theta"
-   # print theta
+   theta = math.acos(dotproduct / (umag * vmag))
+
+   if theta > (math.pi / 2):
+      theta = math.pi - theta
 
    #finally calculate the lengths of the outer edges Beta and Gamma
-   beta = math.sin(theta) * abs(gcpmag)
+   beta = math.sin(theta) * gcpmag
    # print "beta"
    # print beta
-   gma = math.cos(theta) * abs(gcpmag)
-   # print "gma"
-   # print gma
+   gamma = math.cos(theta) * gcpmag
 
    #to work out our pitch and roll adjustments we use beta and gamma respectively to draw an isosceles triangle
    #should take dem average from altitude to get true adjust
-   print "beta"
-   print beta
-   rolladjust = math.degrees(2 * (math.atan(beta / 2) / altitude))
-   print "roll adjust"
-   print rolladjust
-   rolladjust2 = math.degrees(2 * (math.atan2((beta / 2), altitude)))
-   print "roll adjust 2"
-   print rolladjust2
-   pitchadjust = math.degrees(2 * (math.atan(gma / 2) / altitude))
+   rolladjust = math.degrees(2 * (math.atan2((beta / 2), altitude)))
+   pitchadjust = math.degrees(2 * (math.atan2((gamma / 2), altitude)))
 
    return pitchadjust, rolladjust
