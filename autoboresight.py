@@ -4,6 +4,7 @@ import GcpParser
 import features
 import adjuster
 import IgmParser
+import numpy as np
 
 #cv2.imread works on geotiffs.
 from osgeo import gdal
@@ -18,6 +19,7 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
       adjust = []
    else:
       gcparray = None
+   adjust=[]
    for flightline in os.listdir(scanlinefolder):
       igmfile = [x for x in igmfiles if flightline[:9] in x and 'osng' in x and 'igm' in x and 'hdr' not in x][0]
       flightline = (scanlinefolder + '/' + flightline)
@@ -41,9 +43,11 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
       #this will always be run regardless if the gcps are there
       scanlineadjustments = []
       for scanline in os.listdir(scanlinefolder):
-         print scanline
          #need to test if they have the same filename otherwise it would be bad
-         if scanline != flightline:
+         if scanline not in flightline:
+            print scanline, flightline
+            scanlineigmfile = [x for x in igmfiles if scanline[:9] in x and 'osng' in x and 'igm' in x and 'hdr' not in x][0]
+            scanlineigmarray = IgmParser.bilreader(igmfolder + '/' + scanlineigmfile)
             scanline = scanlinefolder + '/' + scanline
             #try:
             slk1, slk2, matches = features.tiepointgenerator(flightline, scanline, igmarray)
@@ -56,51 +60,64 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
                gdalflightline = gdal.Open(flightline)
 
                onlinecoords = features.pixelcoordinates(slk1[match.queryIdx].pt[0], slk1[match.queryIdx].pt[1], gdalflightline)
+               # print "online"
+               # print slk1[match.trainIdx].pt
+               # print onlinecoords
                onlinecoordsheight = features.heightgrabber(igmarray, onlinecoords)
                online.append([i, onlinecoords[0], onlinecoords[1], onlinecoordsheight])
 
                offlinecoords = features.pixelcoordinates(slk2[match.trainIdx].pt[0], slk2[match.trainIdx].pt[1], gdalscanline)
-               offlinecoordsheight = features.heightgrabber(igmarray, offlinecoords)
+               # print "offline"
+               # print slk2[match.trainIdx].pt
+               # print offlinecoords
+               offlinecoordsheight = features.heightgrabber(scanlineigmarray, offlinecoords)
                offline.append([i, offlinecoords[0], offlinecoords[1], offlinecoordsheight])
                i+=1
-            scanlineadjustments.append(adjuster.calculator(flightline,
-                                                           online,
-                                                           offline,
-                                                           igmarray,
-                                                           groundcontrolpoints=False))
+            pit, rol, hed = adjuster.calculator(flightline, online, offline, igmarray, groundcontrolpoints=False)
+            print pit, rol, hed
+            scanlineadjustments.append([np.float64(pit), np.float64(rol), np.float64(hed)])
             #except Exception, e:
                #print e
                #print "no match found between %s and %s" % (flightline, scanline)
+         else:
+            print "poo"
 
       p = 0
       r = 0
       h = 0
-      adjust = []
+
       for adjustment in scanlineadjustments:
-         p + adjustment[0]
-         r + adjustment[1]
-         h + adjustment[2]
+
+         p = np.float64(p + adjustment[0])
+         r = np.float64(r + adjustment[1])
+         h = np.float64(h + adjustment[2])
 
       length = len(scanlineadjustments)
-      p = p / length
-      r = r / length
-      h = h / length
+      p = np.float64(p / length)
+      r = np.float64(r / length)
+      h = np.float64(h / length)
 
-      if gcpadjustments:
-         pgcp = (p + gcpadjustments[0]) / 2
-         rgcp = (r + gcpadjustments[1]) / 2
-         hgcp = (h + gcpadjustments[2]) / 2
+      if gcpadjustments != None:
+         pgcp = (pgcp + gcpadjustments[0]) / 2
+         rgcp = (rgcp + gcpadjustments[1]) / 2
+         hgcp = (hgcp + gcpadjustments[2]) / 2
 
-         adjust.append([p, r, h, pgcp, rpgcp, hgcp])
+         adjust.append([p, r, h, pgcp, rgcp, hgcp])
       else:
-         adjust.append([p,r,h])
+         print "appending!"
+         adjust.append([p, r, h])
 
    p = 0
    r = 0
    h = 0
+   print adjust
+   print len(adjust)
    for a in adjust:
+      # print a[0]
       p = p + a[0]
+      # print a[1]
       r = r + a[1]
+      # print a[2]
       h = h + a[2]
    length = len(adjust)
    p = p / length

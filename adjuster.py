@@ -12,8 +12,8 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
       cont = True
       centerpx = None
       centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
-      if centerpx:
-         heading = headingangle(centerpx, point, sensorpoints[point[0] - 1])
+      if centerpx != None:
+         heading = headingangle(centerpx, point[1:], sensorpoints[point[0] - 1][1:])
          headingvalues.append(heading)
    headingstd = stdfiltering(headingvalues)
 
@@ -38,18 +38,16 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
    for enum, point in enumerate(externalpoints):
       centerpx = None
       centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
-      if centerpx:
-         pitch, roll = pitchrolladjust(centerpx, point, sensorpoints[point[0] - 1], 2000)
+      if centerpx != None:
+         pitch, roll = pitchrolladjust(centerpx, point[1:], sensorpoints[point[0] - 1][1:], 2000)
          if math.isnan(pitch) and math.isnan(roll):
             continue
          else:
-            # print pitch
-            # print roll
             pitchvalues.append(pitch)
+            # print abs(pitch)
             rollvalues.append(roll)
+            # print roll
    #find average of pitch roll values
-   # print pitchvalues
-   # print rollvalues
    print "filtering pitch and roll for outliers..."
    pitchstd = stdfiltering(np.array(pitchvalues))
    rollstd = stdfiltering(np.array(rollvalues))
@@ -57,8 +55,6 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
    print "producing pitch and roll means"
    pitch = np.mean(pitchstd)
    roll = np.mean(rollstd)
-   # print pitch
-   # print roll
    return pitch, roll, heading
 
 def stdfiltering(list, f=2):
@@ -66,13 +62,13 @@ def stdfiltering(list, f=2):
    return list[(list - np.median(list)) < f * np.std(list)]
 
 def meanstd(list):
-   liststd = std(list)
+   liststd = np.std(list)
    #remove heading angles above 2 std dev
    while not stdsmoothcheck(list, liststd):
       for num, item in enumerate(list):
          if item >= (liststd * 2):
             list.pop(num)
-      liststd = std(list)
+      liststd = np.std(list)
    listmean = sum(list) / len(list)
    return listmean, liststd
 
@@ -91,24 +87,15 @@ def headingangle(centerpixel, truegcp, sensorgcp):
    :param centerpixel:
    :param truegcp:
    :param sensorgcp:
-   :param altitude:
-   :param demavg:
    :return:
    """
    x = 0
    y = 1
    z = 2
-   print "center"
-   print centerpixel
-   print "true"
-   print truegcp
-   print "sensor"
-   print sensorgcp
    #set for testing
    #centerpixel=array([x,y,z])
    #truegcp=array([x,y,z])
    #sensorgcp=array([x,y,z])
-   sensorgcp=sensorgcp[1:]
    #create the vector of the scanline direction
    sensorvect = [(sensorgcp[x] - centerpixel[x]),
                  (sensorgcp[y] - centerpixel[y]),
@@ -151,7 +138,7 @@ def headingangle(centerpixel, truegcp, sensorgcp):
    # print "vmag"
    # print vmag
    #this gives us the angle that is less than (pi/2)/90
-   theta = math.acos(dotproduct / (umag * vmag))
+   theta = math.radians(math.acos(dotproduct / (umag * vmag)))
    # print "theta"
    # print theta
 
@@ -193,7 +180,6 @@ def pitchrolladjust(centerpixel, truegcp, sensorgcp, altitude):
    #centerpixel=array([x,y,z])
    #truegcp=array([x,y,z])
    #sensorgcp=array([x,y,z])
-
    #create the vector of the scanline direction
    sensorvect = [(sensorgcp[x] - centerpixel[x]),
                  (sensorgcp[y] - centerpixel[y]),
@@ -231,26 +217,32 @@ def pitchrolladjust(centerpixel, truegcp, sensorgcp, altitude):
    #magnitude the results
    umag = math.sqrt(((u[x]) ** 2) + ((u[y]) ** 2) + ((u[z]) ** 2))
    # print "umag"
-   # print umag
    vmag = math.sqrt(((v[x]) ** 2) + ((v[y]) ** 2) + ((v[z]) ** 2))
    # print "vmag"
    # print vmag
    # this gives us the angle that is less than (pi/2)/90
-   theta = math.acos(dotproduct / (umag * vmag))
+   theta = math.acos(abs(dotproduct) / (abs(umag) * abs(vmag)))
    # print "theta"
    # print theta
 
    #finally calculate the lengths of the outer edges Beta and Gamma
-   beta = math.sin(theta) * gcpmag
+   beta = math.sin(theta) * abs(gcpmag)
    # print "beta"
    # print beta
-   gma = math.cos(theta) * gcpmag
+   gma = math.cos(theta) * abs(gcpmag)
    # print "gma"
    # print gma
 
    #to work out our pitch and roll adjustments we use beta and gamma respectively to draw an isosceles triangle
    #should take dem average from altitude to get true adjust
-   rolladjust = 2 * (math.atan(beta / 2) / altitude)
-   pitchadjust = 2 * (math.atan(gma / 2) / altitude)
+   print "beta"
+   print beta
+   rolladjust = math.degrees(2 * (math.atan(beta / 2) / altitude))
+   print "roll adjust"
+   print rolladjust
+   rolladjust2 = math.degrees(2 * (math.atan2((beta / 2), altitude)))
+   print "roll adjust 2"
+   print rolladjust2
+   pitchadjust = math.degrees(2 * (math.atan(gma / 2) / altitude))
 
    return pitchadjust, rolladjust

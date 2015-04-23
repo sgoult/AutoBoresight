@@ -43,13 +43,14 @@ def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
       for scanline in igmarray[0]:
          latmin = np.amin(scanline)
          latmax = np.amax(scanline)
-         if latmin <= coords[0] and latmax >= coords[0]:
-            insidelat =  True
+         if latmin - 4 <= coords[0] and latmax + 4 >= coords[0]:
+            insidelat = True
+
 
       for scanline in igmarray[1]:
          longmin = np.amin(scanline)
          longmax = np.amax(scanline)
-         if longmin <= coords[1] and longmax >= coords[1]:
+         if longmin - 4 <= coords[1] and longmax + 4 >= coords[1]:
             insidelong = True
 
       if insidelat and insidelong:
@@ -66,6 +67,8 @@ def tiepointgenerator(scanline1, scanline2, igmarray):
    #filter to within the flightline object
    scanlinegdal = gdal.Open(scanline1)
    slk1 = tiepointfilter(igmarray, slk1, scanlinegdal)
+   print "SLKS"
+   print len(slk1)
    #compute descriptors
    slk1, sld1 = orb.compute(sli1, slk1)
    slk2, sld2 = orb.detectAndCompute(sli2, None)
@@ -75,12 +78,13 @@ def tiepointgenerator(scanline1, scanline2, igmarray):
    try:
       good = []
       for m, n in matches:
-         if m.distance < 0.7 * n.distance:
+         if m.distance < 70 * n.distance:
             good.append(m)
    except Exception, e:
       print e
       print "something went horrifically wrong with bfmatcher :S"
-
+   print "GOOD"
+   print len(good)
    return slk1, slk2, good
 
 def gcpidentifier(scanlinetiff, gcpoints):
