@@ -5,6 +5,7 @@ import numpy as np
 import IgmParser
 
 def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontrolpoints):
+   ALTITUDE = 2000
    #find heading angles
    headingvalues = []
    print "calculating heading..."
@@ -39,7 +40,7 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
       centerpx = None
       centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
       if centerpx != None:
-         pitch, roll = pitchrolladjust(centerpx, point[1:], sensorpoints[point[0] - 1][1:], 2000)
+         pitch, roll = pitchrolladjust(centerpx, point[1:], sensorpoints[point[0] - 1][1:], ALTITUDE)
          if math.isnan(pitch) and math.isnan(roll):
             continue
          else:
