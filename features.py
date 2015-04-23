@@ -67,7 +67,7 @@ def tiepointgenerator(scanline1, scanline2, igmarray):
    #filter to within the flightline object
    scanlinegdal = gdal.Open(scanline1)
    slk1 = tiepointfilter(igmarray, slk1, scanlinegdal)
-   print "SLKS"
+   print "Keypoints identified on the scanline"
    print len(slk1)
    #compute descriptors
    slk1, sld1 = orb.compute(sli1, slk1)
@@ -83,7 +83,7 @@ def tiepointgenerator(scanline1, scanline2, igmarray):
    except Exception, e:
       print e
       print "something went horrifically wrong with bfmatcher :S"
-   print "GOOD"
+   print "Keypoints to be taken forward as tiepoints"
    print len(good)
    return slk1, slk2, good
 

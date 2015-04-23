@@ -45,7 +45,7 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
       for scanline in os.listdir(scanlinefolder):
          #need to test if they have the same filename otherwise it would be bad
          if scanline not in flightline:
-            print scanline, flightline
+            print "%s being compared to %s" % (scanline, flightline)
             scanlineigmfile = [x for x in igmfiles if scanline[:9] in x and 'osng' in x and 'igm' in x and 'hdr' not in x][0]
             scanlineigmarray = IgmParser.bilreader(igmfolder + '/' + scanlineigmfile)
             scanline = scanlinefolder + '/' + scanline
@@ -80,7 +80,7 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
                #print e
                #print "no match found between %s and %s" % (flightline, scanline)
          else:
-            print "poo"
+            continue
 
       p = 0
       r = 0
@@ -104,13 +104,12 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
 
          adjust.append([p, r, h, pgcp, rgcp, hgcp])
       else:
-         print "appending!"
          adjust.append([p, r, h])
 
    p = 0
    r = 0
    h = 0
-   print adjust
+   print "Total scanline adjustments:"
    print len(adjust)
    for a in adjust:
       # print a[0]
@@ -123,8 +122,12 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output)
    p = p / length
    r = r / length
    h = h / length
-   print "pitch, roll, heading"
-   print p, r, h
+   print "pitch"
+   print p
+   print "roll"
+   print r
+   print "heading"
+   print h
    return p, r, h
 
 if __name__=='__main__':
@@ -191,5 +194,3 @@ if __name__=='__main__':
       boresight = autoboresight(gtifflist, gcpimagesfolder, gcpcsv, igmlist, navfile, None)
    else:
       boresight = autoboresight(gtifflist, None, None, igmlist, navfile, None)
-
-   print boresight

@@ -176,12 +176,12 @@ def pitchrolladjust(centerpixel, truegcp, sensorgcp, altitude):
    x = 0
    y = 1
    z = 2
-   print "centerpixel"
-   print centerpixel
-   print "sensorgcp"
-   print sensorgcp
-   print "truegcp"
-   print truegcp
+   # print "centerpixel"
+   # print centerpixel
+   # print "sensorgcp"
+   # print sensorgcp
+   # print "truegcp"
+   # print truegcp
    #set for testing
    #centerpixel=array([x,y,z])
    #truegcp=array([x,y,z])
