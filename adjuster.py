@@ -4,6 +4,26 @@ import numpy as np
 
 import IgmParser
 
+def intersect(point1, point2, point3, point4):
+  """this 'should' work for a square or nearly square shape. If its not we might get an iffy return.
+  For use with pixel coordinates to grab the lat long of a point
+
+  Use with initial gcp image then rotate the resultant intersect through perspective transform"""
+  c = point2[0] - point1[0]
+  d = point2[1] - point1[1]
+
+  x1 = point3[0] - point1[0]
+  y1 = point3[1] - point1[1]
+
+  x2 = point4[0] - point2[0]
+  y2 = point4[1] - point2[1]
+
+  mew = (d - ((c * y2) / x1) / (((y1 * x2) / x1) - y2))
+
+  intersect = [mew * (x2 + point2[0]), mew * (y2 + point2[1])]
+
+  return intersect
+
 def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontrolpoints):
    ALTITUDE = 2000
    #find heading angles
@@ -12,10 +32,32 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
    for enum, point in enumerate(externalpoints):
       cont = True
       centerpx = None
-      centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
-      if centerpx != None:
-         heading = headingangle(centerpx, point[1:], sensorpoints[point[0] - 1][1:])
-         headingvalues.append(heading)
+      secondcentrepx = None
+      if enum != (len(externalpoints) -1):
+         sensorpoint = sensorpoints[enum]
+         secondpoint = externalpoints[enum+1]
+         secondsensorpoint = sensorpoints[enum+1]
+         centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
+         secondcentrepx = IgmParser.centerpixel(igmarray, [secondpoint[1], secondpoint[2]])
+
+         if centerpx != None and secondcentrepx != None and float('nan') not in centerpx and not float('nan') not in secondcentrepx:
+            #first take all the points to the same centre axis by removing the centre pixel coordinates
+            pointcentred = [point[1] - centerpx[0], point[2] - centerpx[1], point[3] - centerpx[2]]
+            sensorpointcentred = [sensorpoint[1] - centerpx[0], sensorpoint[2] - centerpx[1], sensorpoint[3] - centerpx[2]]
+            secondpointcentred =[secondpoint[1] - secondcentrepx[0], secondpoint[2] - secondcentrepx[1], secondpoint[3] - secondcentrepx[2]]
+            secondsensorpointcentred =[secondsensorpoint[1] - secondcentrepx[0], secondsensorpoint[2] - secondcentrepx[1], secondsensorpoint[3] - secondcentrepx[2]]
+
+            #find the intersect of those points
+            intersectpoint = intersect(pointcentred, sensorpointcentred, secondpointcentred, secondsensorpointcentred)
+            #need to return the intersectpoint to the scanline position and give it a z coordinate for the rest of the calculations
+            intersectpoint = [intersectpoint[0] + centerpx[0],
+                              intersectpoint[1] + centerpx[1],
+                              centerpx[3]]
+            print intersectpoint
+            print centerpx
+            #finally find the heading angle given the intersect point of the two points analysed
+            heading = headingangle(intersectpoint, point[1:], sensorpoints[point[0] - 1][1:])
+            headingvalues.append(heading)
    headingstd = stdfiltering(headingvalues)
 
    heading = np.mean(headingstd)
@@ -80,7 +122,7 @@ def stdsmoothcheck(list, liststd):
          smoothed = False
    return smoothed
 
-def headingangle(centerpixel, truegcp, sensorgcp):
+def headingangle(intersectpoint, truegcp, sensorgcp):
    #set xyz so that the calcs are a bit more sensible to read
    """
    generates heading angles from the center pixel for each
@@ -98,18 +140,18 @@ def headingangle(centerpixel, truegcp, sensorgcp):
    #truegcp=array([x,y,z])
    #sensorgcp=array([x,y,z])
    #create the vector of the scanline direction
-   sensorvect = [(sensorgcp[x] - centerpixel[x]),
-                 (sensorgcp[y] - centerpixel[y]),
-                 (sensorgcp[z] - centerpixel[z])]
+   sensorvect = [(sensorgcp[x] - intersectpoint[x]),
+                 (sensorgcp[y] - intersectpoint[y]),
+                 (sensorgcp[z] - intersectpoint[z])]
    # print "sensorvect"
    # print sensorvect
 
    #create the vector of the scanline direction
 
    #create the vector of the ground control point from its position in sensor space
-   gcpvect = [(truegcp[x] - centerpixel[x]),
-              (truegcp[y] - centerpixel[y]),
-              (truegcp[z] - centerpixel[z])]
+   gcpvect = [(truegcp[x] - intersectpoint[x]),
+              (truegcp[y] - intersectpoint[y]),
+              (truegcp[z] - intersectpoint[z])]
    # print "gcpvect"
    # print gcpvect
    #create the magnitude (scalar) of the resultant vector
@@ -150,7 +192,6 @@ def headingangle(centerpixel, truegcp, sensorgcp):
 
 #should have found the heading angle first
 def headingadjust(point, centerpixel, angle):
-   #this is not right
    x = 0
    y = 1
    z = 2
@@ -244,6 +285,8 @@ def pitchrolladjust(centerpixel, truegcp, sensorgcp, altitude):
 
    #to work out our pitch and roll adjustments we use beta and gamma respectively to draw an isosceles triangle
    #should take dem average from altitude to get true adjust
+   altitude = altitude - ((centerpixel[z] + sensorgcp[z] + truegcp[z]) / 3)
+
    rolladjust = math.degrees(2 * (math.atan2((beta / 2), altitude)))
    pitchadjust = math.degrees(2 * (math.atan2((gamma / 2), altitude)))
 
