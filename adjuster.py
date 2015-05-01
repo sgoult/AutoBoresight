@@ -5,27 +5,26 @@ import numpy as np
 import IgmParser
 
 def intersect(point1, point2, point3, point4):
-  """this 'should' work for a square or nearly square shape. If its not we might get an iffy return.
-  For use with pixel coordinates to grab the lat long of a point
+   """this 'should' work for a square or nearly square shape. If its not we might get an iffy return.
+   For use with pixel coordinates to grab the lat long of a point
 
-  Use with initial gcp image then rotate the resultant intersect through perspective transform"""
-  c = point2[0] - point1[0]
-  d = point2[1] - point1[1]
+   Use with initial gcp image then rotate the resultant intersect through perspective transform"""
+   c = point2[0] - point1[0]
+   d = point2[1] - point1[1]
 
-  x1 = point3[0] - point1[0]
-  y1 = point3[1] - point1[1]
+   x1 = point3[0] - point1[0]
+   y1 = point3[1] - point1[1]
 
-  x2 = point4[0] - point2[0]
-  y2 = point4[1] - point2[1]
+   x2 = point4[0] - point2[0]
+   y2 = point4[1] - point2[1]
 
-  mew = (d - ((c * y2) / x1) / (((y1 * x2) / x1) - y2))
+   mew = (d - ((c * y2) / x1) / (((y1 * x2) / x1) - y2))
 
-  intersect = [mew * (x2 + point2[0]), mew * (y2 + point2[1])]
+   intersect = [mew * (x2 + point2[0]), mew * (y2 + point2[1])]
 
-  return intersect
+   return intersect
 
-def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontrolpoints):
-   ALTITUDE = 2000
+def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, altitude, groundcontrolpoints):
    #find heading angles
    headingvalues = []
    print "calculating heading..."
@@ -39,8 +38,7 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
          secondsensorpoint = sensorpoints[enum+1]
          centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
          secondcentrepx = IgmParser.centerpixel(igmarray, [secondpoint[1], secondpoint[2]])
-
-         if centerpx != None and secondcentrepx != None and float('nan') not in centerpx and not float('nan') not in secondcentrepx:
+         if (centerpx != None) and (secondcentrepx != None) and (float('nan') not in centerpx) and (float('nan') not in secondcentrepx):
             #first take all the points to the same centre axis by removing the centre pixel coordinates
             pointcentred = [point[1] - centerpx[0], point[2] - centerpx[1], point[3] - centerpx[2]]
             sensorpointcentred = [sensorpoint[1] - centerpx[0], sensorpoint[2] - centerpx[1], sensorpoint[3] - centerpx[2]]
@@ -53,52 +51,87 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, groundcontr
             intersectpoint = [intersectpoint[0] + centerpx[0],
                               intersectpoint[1] + centerpx[1],
                               centerpx[3]]
-            print intersectpoint
-            print centerpx
+
             #finally find the heading angle given the intersect point of the two points analysed
-            heading = headingangle(intersectpoint, point[1:], sensorpoints[point[0] - 1][1:])
-            headingvalues.append(heading)
-   headingstd = stdfiltering(headingvalues)
-
-   heading = np.mean(headingstd)
-
-   print "adjusting points..."
-   adjustedexternals=[]
-   for enum, point in enumerate(externalpoints):
-      centerpx = None
-      centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
-      if centerpx:
-         adjustedpoint = headingadjust(point[1:], centerpx, heading)
-         adjustedexternals.append([point[0], adjustedpoint[0], adjustedpoint[1], adjustedpoint[2]])
-   adjustedexternals=np.array(adjustedexternals)
+            try:
+               heading = headingangle(intersectpoint, point[1:], sensorpoints[point[0] - 1][1:])
+               if heading < 10:
+                  headingvalues.append(heading)
+            except Exception, e:
+               print e
 
 
+   headingvalues = [x for x in headingvalues if not math.isnan(x)]
+   if len(headingvalues) > 1:
+      headingstd = stdfiltering(headingvalues)
+      heading = np.mean(headingstd)
+   else:
+      #we can't base heading on a single return
+      heading = 0
+
+   if heading != 0:
+      print "adjusting points..."
+      adjustedexternals=[]
+      for enum, point in enumerate(externalpoints):
+         centerpx = None
+         centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
+         if centerpx:
+            adjustedpoint = headingadjust(point[1:], centerpx, heading)
+            adjustedexternals.append([point[0], adjustedpoint[0], adjustedpoint[1], adjustedpoint[2]])
+      adjustedexternals=np.array(adjustedexternals)
+   else:
+      #if heading is 0 then there is no adjustment to be made
+      adjustedexternals = externalpoints
+
+   #need to convert heading to degrees to output, otherwise unusable
+   heading  = math.degrees(heading)
 
    #find pitch and roll errors
    print "calculating pitch and roll..."
    pitchvalues = []
    rollvalues = []
-   for enum, point in enumerate(externalpoints):
+   for enum, point in enumerate(adjustedexternals):
       centerpx = None
       centerpx = IgmParser.centerpixel(igmarray, [point[1], point[2]])
       if centerpx != None:
-         pitch, roll = pitchrolladjust(centerpx, point[1:], sensorpoints[point[0] - 1][1:], ALTITUDE)
+         try:
+            pitch, roll = pitchrolladjust(centerpx, point[1:], sensorpoints[int(point[0] - 1)][1:], altitude)
+         except Exception, e:
+            print e
+            print type(point[0] - 1)
+            pitch = float('nan')
+            roll = float('nan')
          if math.isnan(pitch) and math.isnan(roll):
             continue
          else:
-            pitchvalues.append(pitch)
+            if pitch < 10:
+               pitchvalues.append(pitch)
             # print abs(pitch)
-            rollvalues.append(roll)
+            if roll < 10:
+               rollvalues.append(roll)
             # print roll
-   #find average of pitch roll values
-   print "filtering pitch and roll for outliers..."
-   pitchstd = stdfiltering(np.array(pitchvalues))
-   rollstd = stdfiltering(np.array(rollvalues))
+   print len(pitchvalues)
+   print len(rollvalues)
 
-   print "producing pitch and roll means"
-   pitch = np.mean(pitchstd)
-   roll = np.mean(rollstd)
-   return pitch, roll, heading
+   if len(pitchvalues) > 1 and len(rollvalues) > 1:
+      #find average of pitch roll values
+      print "filtering pitch and roll for outliers..."
+      pitchstd = stdfiltering(np.array(pitchvalues))
+      rollstd = stdfiltering(np.array(rollvalues))
+
+      print "producing pitch and roll means"
+      pitch = np.mean(pitchstd)
+      roll = np.mean(rollstd)
+      if (pitch > 10) or (roll > 10) or (heading > 10):
+         print "adjustments seem excessively large (p %s r %s h %s), will ignore" % (pitch, roll, heading)
+         raise ArithmeticError
+      else:
+         return pitch, roll, heading
+   else:
+      print "Warning, only one pitch or roll value successfully found for %s, " \
+            "flightline disregarded but this will adversely effect the results" % (scanlinetiff)
+      raise ArithmeticError
+
 
 def stdfiltering(list, f=2):
    list=np.array(list)

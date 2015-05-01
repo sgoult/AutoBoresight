@@ -41,6 +41,7 @@ def centerpixel(bilarray, point):
    #       if abs(longmin-point[0]) <= abs(longlow-point[0]):
          # longscanlines.append(enum)
          # longlow=longmin
+
    minimum=10
    scanlinenumber = None
    for idx in scanlines:
