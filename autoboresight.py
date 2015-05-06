@@ -8,9 +8,28 @@ import numpy as np
 import libgpstime
 import read_sol_file
 import timeit
+import datetime
 
 from osgeo import gdal
 
+def gpssec(year, month, day, hour, minute, second):
+   """
+   converts header info to a rough gps second
+
+   :param year:
+   :param month:
+   :param day:
+   :param hour:
+   :param minute:
+   :param second:
+   :return gpsseconds:
+   """
+   isoweekday = datetime.date(year, month, day).isoweekday()
+   dayseconds = 86400
+
+   secs = (dayseconds * isoweekday) + (3600 * hour) + (60 * minute) + second
+
+   return secs
 
 def altFind(hdrfile, navfile):
    """
@@ -38,11 +57,11 @@ def altFind(hdrfile, navfile):
    hour, minute, second = start.split(':')
    second = int(second[:2].replace('.',''))
 
-   gpsstart = libgpstime.utc2gps_weeksec(int(year), int(month), int(day), int(hour), int(minute), int(second))
+   gpsstart = gpssec(int(year), int(month), int(day), int(hour), int(minute), int(second))
    hour, minute, second = end.split(':')
    second = int(second[:2].replace('.', ''))
 
-   gpsstop = libgpstime.utc2gps_weeksec(int(year), int(month), int(day), int(hour), int(minute), int(second))
+   gpsstop = gpssec(int(year), int(month), int(day), int(hour), int(minute), int(second))
 
    #grabs the relevant entries from a nav file
    trimmed_data=navfile[np.where(navfile['time'] > gpsstart)]
