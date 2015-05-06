@@ -7,20 +7,32 @@ import IgmParser
 import numpy as np
 import libgpstime
 import read_sol_file
-
+import timeit
 
 from osgeo import gdal
 
 
-def altfind(hdrfile, navfile):
-   for line in hdrfile:
+def altFind(hdrfile, navfile):
+   """
+   Function altFind
 
+   takes a level one header file and open navfile object,
+   returns an average altitude for the flightline
+
+   :param hdrfile:
+   :param navfile:
+   :return altitude:
+   """
+   for line in hdrfile:
+      #grab times from the header file
       if "GPS Start Time" in line:
          start = line[27:]
       if "GPS Stop Time" in line:
          end = line[26:]
       if "acquisition" in line:
          day = line[37:]
+
+   #identify the start and stop points of the scanline
    day, month, year = day.split('-')
 
    hour, minute, second = start.split(':')
@@ -31,18 +43,40 @@ def altfind(hdrfile, navfile):
    second = int(second[:2].replace('.', ''))
 
    gpsstop = libgpstime.utc2gps_weeksec(int(year), int(month), int(day), int(hour), int(minute), int(second))
+
+   #grabs the relevant entries from a nav file
    trimmed_data=navfile[np.where(navfile['time'] > gpsstart)]
    trimmed_data=trimmed_data[np.where(trimmed_data['time'] < gpsstop)]
 
+   #generate the average altitude
    altitude = np.mean(trimmed_data['alt'])
    return altitude
 
-def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output, hdrfolder):
-   #associate gcps in the commandline ingest
+def autoBoresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output, hdrfolder):
+   """
+   Function autoBoresight
+
+   Main function for boresighting, takes a scanline folder, igm folder nav file and level 1 header folder
+   returns averaged adjustments across all flightlines in the scanline folder
+
+   optionally takes gcp location info and a folder of gcp images,
+   however this is currently not tested or implemented
+
+   :param scanlinefolder:
+   :param gcpfolder:
+   :param gcpcsv:
+   :param igmfolder:
+   :param navfile:
+   :param output:
+   :param hdrfolder:
+   :return  pitch, roll, heading:
+   """
+   #general set up operations
+   start_time = timeit.default_timer()
    igmfiles = os.listdir(igmfolder)
    hdrfiles = os.listdir(hdrfolder)
    navfile = read_sol_file.readSol(navfile)
-   #if we have a gcpcsv then do stuff
+   #if we have a gcpcsv then do some calculations on it
    if gcpcsv:
       gcparray = GcpParser.GcpGrabber(gcpcsv)
       gcparray = GcpParser.GcpImageAssociator(gcparray, gcpfolder)
@@ -51,18 +85,19 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
       gcparray = None
    adjust=[]
    for flightline in os.listdir(scanlinefolder):
+      #we need to establish the altitude of our primary flightline
       igmfile = [x for x in igmfiles if flightline[:9] in x and 'osng' in x and 'igm' in x and 'hdr' not in x][0]
       flightlinename = flightline
       flightline = (scanlinefolder + '/' + flightline)
       flightlineheaderfile = open(hdrfolder + '/' + [hdrfile for hdrfile in hdrfiles if flightlinename[:6] in hdrfile and 'hdr' in hdrfile][0])
-      flightlinealtitude = altfind(flightlineheaderfile, navfile)
-      igmarray = IgmParser.bilreader(igmfolder + '/' + igmfile)
+      flightlinealtitude = altFind(flightlineheaderfile, navfile)
+      igmarray = IgmParser.bilReader(igmfolder + '/' + igmfile)
       #produce matches to gcps
       if gcparray:
-         scanlinegcps = features.gcpidentifier(flightline, gcparray)
+         scanlinegcps = features.gcpIdentifier(flightline, gcparray)
          filteredgcps = []
          for gcp in scanlinegcps:
-            gcp.append(features.heightgrabber(igmarray, [gcp[1], gcp[2]]))
+            gcp.append(features.heightGrabber(igmarray, [gcp[1], gcp[2]]))
             for actualgcp in gcparray:
                if gcp[0] == actualgcp[0]:
                   filteredgcps.append(actualgcp)
@@ -83,14 +118,14 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
             print "%s being compared to %s" % (scanline, flightlinename)
             #first test for same altitude
             scanlineheaderfile = open(hdrfolder + '/' + [hdrfile for hdrfile in hdrfiles if scanline[:6] in hdrfile and 'hdr' in hdrfile][0])
-            scanlinealtitude = altfind(scanlineheaderfile, navfile)
+            scanlinealtitude = altFind(scanlineheaderfile, navfile)
 
 
             if (scanlinealtitude >= flightlinealtitude - 100) and (scanlinealtitude <= flightlinealtitude + 100):
                print "altitudes matched at %s %s" % (scanlinealtitude, flightlinealtitude)
                #then test for overlap
                scanlineigmfile = [x for x in igmfiles if scanline[:6] in x and 'osng' in x and 'igm' in x and 'hdr' not in x][0]
-               scanlineigmarray = IgmParser.bilreader(igmfolder + '/' + scanlineigmfile)
+               scanlineigmarray = IgmParser.bilReader(igmfolder + '/' + scanlineigmfile)
                scanline = scanlinefolder + '/' + scanline
                gdalscanline = gdal.Open(scanline)
                gdalflightline = gdal.Open(flightline)
@@ -111,32 +146,34 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
                           max(flightlinebounds[3], scanlinebounds[3])]
 
                if (overlap[2] < overlap[0]) or (overlap[1] < overlap[3]):
+                  #if there is no overlap
                   overlap = None
 
+               #if there isn't an overlap then we should ignore these flightlines
                if overlap != None:
                   print "overlap confirmed between %s and %s region is:" % (scanline, flightline)
                   print overlap
-                  slk1, slk2, matches = features.tiepointgenerator(flightline, scanline, igmarray)
+                  slk1, slk2, matches = features.tiePointGenerator(flightline, scanline, igmarray)
                   online=[]
                   offline=[]
                   i=1
-                  totalpoints + len(matches)
+                  totalpoints = totalpoints + len(matches)
                   #finally compare the images for key points
                   for match in matches:
                      #creates ordered lists of the matched points
 
-                     onlinecoords = features.pixelcoordinates(slk1[match.queryIdx].pt[0], slk1[match.queryIdx].pt[1], gdalflightline)
+                     onlinecoords = features.pixelCoordinates(slk1[match.queryIdx].pt[0], slk1[match.queryIdx].pt[1], gdalflightline)
                      # print "online"
                      # print slk1[match.trainIdx].pt
                      # print onlinecoords
-                     onlinecoordsheight = features.heightgrabber(igmarray, onlinecoords)
+                     onlinecoordsheight = features.heightGrabber(igmarray, onlinecoords)
                      online.append([i, onlinecoords[0], onlinecoords[1], onlinecoordsheight])
 
-                     offlinecoords = features.pixelcoordinates(slk2[match.trainIdx].pt[0], slk2[match.trainIdx].pt[1], gdalscanline)
+                     offlinecoords = features.pixelCoordinates(slk2[match.trainIdx].pt[0], slk2[match.trainIdx].pt[1], gdalscanline)
                      # print "offline"
                      # print slk2[match.trainIdx].pt
                      # print offlinecoords
-                     offlinecoordsheight = features.heightgrabber(scanlineigmarray, offlinecoords)
+                     offlinecoordsheight = features.heightGrabber(scanlineigmarray, offlinecoords)
                      offline.append([i, offlinecoords[0], offlinecoords[1], offlinecoordsheight])
                      i+=1
                   try:
@@ -200,12 +237,13 @@ def autoboresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
       r = r / length
       h = h / length
    print "pitch"
-   print p
+   print p / 2
    print "roll"
-   print r
+   print r / 2
    print "heading"
-   print h
-   print "Calculated on %s points from %s flightlines" % (totalpoints, len(scanlinefolder))
+   print h / 2
+   print "Calculated on %s points from %s flightlines" % (totalpoints, len(os.listdir(scanlinefolder)))
+   print "Took %s seconds" % (timeit.default_timer() - start_time)
    return p, r, h
 
 if __name__=='__main__':
@@ -280,6 +318,6 @@ if __name__=='__main__':
          gcpimagesfolder = commandline.gcpimages
          gcpcsv = commandline.gcps
 
-      boresight = autoboresight(gtifflist, gcpimagesfolder, gcpcsv, igmlist, navfile, None, hdrfolder)
+      boresight = autoBoresight(gtifflist, gcpimagesfolder, gcpcsv, igmlist, navfile, None, hdrfolder)
    else:
-      boresight = autoboresight(gtifflist, None, None, igmlist, navfile, None, hdrfolder)
+      boresight = autoBoresight(gtifflist, None, None, igmlist, navfile, None, hdrfolder)

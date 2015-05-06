@@ -1,10 +1,21 @@
 #!/usr/bin/env python
 import cv2
 import numpy as np
+import adjuster
 from scipy import ndimage
 from osgeo import gdal
 
-def heightgrabber(igmarray, coords):
+def heightGrabber(igmarray, coords):
+   """
+   Function heightGrabber
+
+   Takes an igm array (file) and set of coordinates then associates a
+   height with the established location
+
+   :param igmarray:
+   :param coords:
+   :return height:
+   """
    latlow = -1
    latlowidx = 0
    for enum, scanline in enumerate(igmarray[0]):
@@ -29,17 +40,24 @@ def heightgrabber(igmarray, coords):
    height = igmarray[2][longscanline][longlowidx]
    return height
 
-def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
+def tiePointFilter(igmarray, keypointsarray, scanlinetiff):
+   """
+   Function tiePointFilter
+
+   Takes an igm array, set of keypoints and geotiff then filters points to ensure
+   they are within the flightline area
+
+   :param igmarray:
+   :param keypointsarray:
+   :param scanlinetiff:
+   :return insideflightline(array):
+   """
    insideflightline=[]
-   # latshift = np.sum(np.diff(igmarray[0][0])) / len(igmarray[0][0]) *10
-   # longshift = np.sum(np.diff(igmarray[1][0])) / len(igmarray[1][0]) *1000
-   # print longshift
-   # print latshift
 
    insidelong = False
    insidelat = False
    for point in keypointsarray:
-      coords = pixelcoordinates(point.pt[0], point.pt[1], scanlinetiff)
+      coords = pixelCoordinates(point.pt[0], point.pt[1], scanlinetiff)
       for scanline in igmarray[0]:
          latmin = np.amin(scanline)
          latmax = np.amax(scanline)
@@ -57,16 +75,26 @@ def tiepointfilter(igmarray, keypointsarray, scanlinetiff):
          insideflightline.append(point)
    return insideflightline
 
-def tiepointgenerator(scanline1, scanline2, igmarray):
+def tiePointGenerator(scanline1, scanline2, igmarray):
+   """
+   Function tiePointGenerator
+
+   Generates matched keypoints given two input flightlines and an igm array
+
+   :param scanline1:
+   :param scanline2:
+   :param igmarray:
+   :return keypoints for flighline 1, keypoints for flightline 2, matches:
+   """
    bf = cv2.BFMatcher()
    sli1 = cv2.imread(scanline1)
    sli2 = cv2.imread(scanline2)
-   orb = cv2.ORB()
+   orb = cv2.ORB(nfeatures=1000)
    #create keypoints
    slk1 = orb.detect(sli1)
    #filter to within the flightline object
    scanlinegdal = gdal.Open(scanline1)
-   slk1 = tiepointfilter(igmarray, slk1, scanlinegdal)
+   slk1 = tiePointFilter(igmarray, slk1, scanlinegdal)
    print "Keypoints identified on the scanline"
    print len(slk1)
    #compute descriptors
@@ -87,7 +115,17 @@ def tiepointgenerator(scanline1, scanline2, igmarray):
    print len(good)
    return slk1, slk2, good
 
-def gcpidentifier(scanlinetiff, gcpoints):
+def gcpIdentifier(scanlinetiff, gcpoints):
+   """
+   Function gcpIdentifier
+
+   Takes a flightline geotiff and gcppoints array with image locations appended,
+   returns any valid gcp points on the flightline using image plates of gcp locations
+
+   :param scanlinetiff:
+   :param gcpoints:
+   :return array of gcps on the scanline in vector format:
+   """
    MIN_MATCH_COUNT = 10
    bf = cv2.BFMatcher()
    scanlineimg = ndimage.imread(scanlinetiff)
@@ -131,34 +169,24 @@ def gcpidentifier(scanlinetiff, gcpoints):
          print "Not enough matches are found for gcp (number)- %s/%s" % (len(good), MIN_MATCH_COUNT)
          matchesMask = None
 
-      gcpcentre = intersect(pts)
-      gcploc = pixelcoordinates(gcpcentre[0], gcpcentre[1], scanlinetiff)
+      gcpcentre = adjuster.intersect(pts)
+      gcploc = pixelCoordinates(gcpcentre[0], gcpcentre[1], scanlinetiff)
       gcpsonscanline.append([gcp[0], gcploc[0], gcploc[1]])
 
    return gcpsonscanline
 
-def intersect(points):
-  """this 'should' work for a square or nearly square shape. If its not we might get an iffy return.
-  For use with pixel coordinates to grab the lat long of a point
 
-  Use with initial gcp image then rotate the resultant intersect through perspective transform"""
-  c = points[1][0][0] - points[0][0][0]
-  d = points[1][0][1] - points[0][0][1]
+def pixelCoordinates(x, y, scanlinetiff):
+   """
+   Function pixelCoordinates
 
-  x1 = points[2][0][0] - points[0][0][0]
-  y1 = points[2][0][1] - points[0][0][1]
+   Takes x y coordinates of a pixel in a geotiff, uses gdal to convert them into a lat/long or eating/northing format
 
-  x2 = points[3][0][0] - points[1][0][0]
-  y2 = points[3][0][1] - points[1][0][1]
-
-  mew = (d - ((c * y2) / x1) / (((y1 * x2) / x1) - y2))
-
-  intersect = [mew * (x2 + points[1][0][0]), mew * (y2 + points[1][0][1])]
-
-  return intersect
-
-
-def pixelcoordinates(x, y, scanlinetiff):
+   :param x:
+   :param y:
+   :param scanlinetiff:
+   :return easting, northing:
+   """
    xoff, a, b, yoff, d, e = scanlinetiff.GetGeoTransform()
    easting = a * x + b * y + xoff
    northing = d * x + e * y + yoff

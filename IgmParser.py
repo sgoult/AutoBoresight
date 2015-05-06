@@ -3,7 +3,15 @@ import gdal
 import numpy as np
 import math
 
-def bilreader(bilfile):
+def bilReader(bilfile):
+   """
+   Function bilReader
+
+   Takes a bil file and outputs a numpy array using gdal
+
+   :param bilfile:
+   :return numpy array:
+   """
    bildriver = gdal.GetDriverByName('ENVI')
    bildriver.Register()
    bil = gdal.Open(bilfile)
@@ -12,9 +20,20 @@ def bilreader(bilfile):
 
    return bil
 
-def centerpixel(bilarray, point):
+def centrePixel(bilarray, point):
+   """
+   Function centrePixel
+
+   Takes a bilarray and point on a flightline to identify the scanline and centre pixel relevant to
+   that point. Also returns the bearing of the flightline at that centre pixel
+
+   :param bilarray:
+   :param point:
+   :return centrepixelvector:
+   """
    bands, height, width = bilarray.shape
 
+   #test if the array is an IGM file
    if bands != 3:
       raise IOError, "this file has too many bands for an igm file"
 
@@ -30,17 +49,6 @@ def centerpixel(bilarray, point):
          if longmin < 6:
          # if abs(latmin-point[1]) <= abs(latlow-point[1]):
             scanlines.append([enum, longmin])
-         # latlow=latmin
-
-   longlow = -1
-   # longscanlines=[]
-   # for enum, scanline in enumerate(bilarray[1]):
-   #    longidx = (np.abs(scanline - point[1])).argmin()
-   #    if longidx != 951 and longidx != 0:
-   #       longmin = scanline[longidx]
-   #       if abs(longmin-point[0]) <= abs(longlow-point[0]):
-         # longscanlines.append(enum)
-         # longlow=longmin
 
    minimum=10
    scanlinenumber = None
@@ -49,12 +57,6 @@ def centerpixel(bilarray, point):
       if idxminimum < minimum:
          minimum = idxminimum
          scanlinenumber = idx[0]
-
-   # scanlinenumber = None
-   # for latscan in latscanlines:
-   #    for longscan in longscanlines:
-   #       if longscan == latscan:
-   #          scanlinenumber = longscan
 
    if scanlinenumber is not None:
 
@@ -69,6 +71,7 @@ def centerpixel(bilarray, point):
                      bilarray[1][scanlinenumber + 1][centerpx],
                      bilarray[2][scanlinenumber + 1][centerpx]]
 
+      #this is also the best time to return the bearing for this area of the flightline
       if scanlinenumber > 0:
          centerbehind = [bilarray[0][scanlinenumber - 1][centerpx],
                          bilarray[1][scanlinenumber - 1][centerpx],
@@ -88,6 +91,15 @@ def centerpixel(bilarray, point):
       return None
 
 def bearingEstimator(point1, point2):
+   """
+   Function bearingEstimator
+
+   Takes two points and calculates the bearing (point1 being the origin) in degrees
+
+   :param point1:
+   :param point2:
+   :return bearing:
+   """
    deltae = point2[0] - point1[0]
    deltan = point2[1] - point1[1]
 
