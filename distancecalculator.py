@@ -2,7 +2,7 @@
 import math
 import numpy as np
 
-import IgmParser
+import igmparser
 
 def intersect(point1, point2, point3, point4):
    """
@@ -17,10 +17,6 @@ def intersect(point1, point2, point3, point4):
    :param point4:
    :return intersect vector (x,y):
    """
-   """this 'should' work for a square or nearly square shape. If its not we might get an iffy return.
-   For use with pixel coordinates to grab the lat long of a point
-
-   Use with initial gcp image then rotate the resultant intersect through perspective transform"""
    c = point2[0] - point1[0]
    d = point2[1] - point1[1]
 
@@ -63,8 +59,8 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, altitude, g
          sensorpoint = sensorpoints[enum]
          secondpoint = externalpoints[enum+1]
          secondsensorpoint = sensorpoints[enum+1]
-         centerpx = IgmParser.centrePixel(igmarray, [point[1], point[2]])
-         secondcentrepx = IgmParser.centrePixel(igmarray, [secondpoint[1], secondpoint[2]])
+         centerpx = igmparser.centrePixel(igmarray, [point[1], point[2]])
+         secondcentrepx = igmparser.centrePixel(igmarray, [secondpoint[1], secondpoint[2]])
          if (centerpx != None) and (secondcentrepx != None) and (float('nan') not in centerpx) and (float('nan') not in secondcentrepx):
             #first take all the points to the same centre axis by removing the centre pixel coordinates
             pointcentred = [point[1] - centerpx[0], point[2] - centerpx[1], point[3] - centerpx[2]]
@@ -101,7 +97,7 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, altitude, g
       adjustedexternals=[]
       for enum, point in enumerate(externalpoints):
          centerpx = None
-         centerpx = IgmParser.centrePixel(igmarray, [point[1], point[2]])
+         centerpx = igmparser.centrePixel(igmarray, [point[1], point[2]])
          if centerpx:
             adjustedpoint = headingAdjust(point[1:], centerpx, heading)
             adjustedexternals.append([point[0], adjustedpoint[0], adjustedpoint[1], adjustedpoint[2]])
@@ -119,7 +115,7 @@ def calculator(scanlinetiff, sensorpoints, externalpoints, igmarray, altitude, g
    rollvalues = []
    for enum, point in enumerate(adjustedexternals):
       centerpx = None
-      centerpx = IgmParser.centrePixel(igmarray, [point[1], point[2]])
+      centerpx = igmparser.centrePixel(igmarray, [point[1], point[2]])
       if centerpx != None:
          try:
             pitch, roll = pitchRollAdjust(centerpx, point[1:], sensorpoints[int(point[0] - 1)][1:], altitude)

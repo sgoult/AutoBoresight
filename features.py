@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import cv2
 import numpy as np
-import adjuster
+import distancecalculator
 from scipy import ndimage
 from osgeo import gdal
 
@@ -169,7 +169,7 @@ def gcpIdentifier(scanlinetiff, gcpoints):
          print "Not enough matches are found for gcp (number)- %s/%s" % (len(good), MIN_MATCH_COUNT)
          matchesMask = None
 
-      gcpcentre = adjuster.intersect(pts)
+      gcpcentre = distancecalculator.intersect(pts)
       gcploc = pixelCoordinates(gcpcentre[0], gcpcentre[1], scanlinetiff)
       gcpsonscanline.append([gcp[0], gcploc[0], gcploc[1]])
 

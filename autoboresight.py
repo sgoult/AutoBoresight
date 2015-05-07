@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import os, sys, argparse
-import GcpParser
+import gcpparser
 import features
-import adjuster
-import IgmParser
+import distancecalculator
+import igmparser
 import numpy as np
 import libgpstime
 import read_sol_file
@@ -97,8 +97,8 @@ def autoBoresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
    navfile = read_sol_file.readSol(navfile)
    #if we have a gcpcsv then do some calculations on it
    if gcpcsv:
-      gcparray = GcpParser.GcpGrabber(gcpcsv)
-      gcparray = GcpParser.GcpImageAssociator(gcparray, gcpfolder)
+      gcparray = gcpparser.GcpGrabber(gcpcsv)
+      gcparray = gcpparser.GcpImageAssociator(gcparray, gcpfolder)
       adjust = []
    else:
       gcparray = None
@@ -110,7 +110,7 @@ def autoBoresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
       flightline = (scanlinefolder + '/' + flightline)
       flightlineheaderfile = open(hdrfolder + '/' + [hdrfile for hdrfile in hdrfiles if flightlinename[:6] in hdrfile and 'hdr' in hdrfile][0])
       flightlinealtitude = altFind(flightlineheaderfile, navfile)
-      igmarray = IgmParser.bilReader(igmfolder + '/' + igmfile)
+      igmarray = igmparser.bilReader(igmfolder + '/' + igmfile)
       #produce matches to gcps
       if gcparray:
          scanlinegcps = features.gcpIdentifier(flightline, gcparray)
@@ -120,7 +120,7 @@ def autoBoresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
             for actualgcp in gcparray:
                if gcp[0] == actualgcp[0]:
                   filteredgcps.append(actualgcp)
-         gcpadjustments = adjuster.calculator(flightline,
+         gcpadjustments = distancecalculator.calculator(flightline,
                                               scanlinegcps,
                                               filteredgcps,
                                               igmarray,
@@ -144,7 +144,7 @@ def autoBoresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
                print "altitudes matched at %s %s" % (scanlinealtitude, flightlinealtitude)
                #then test for overlap
                scanlineigmfile = [x for x in igmfiles if scanline[:6] in x and 'osng' in x and 'igm' in x and 'hdr' not in x][0]
-               scanlineigmarray = IgmParser.bilReader(igmfolder + '/' + scanlineigmfile)
+               scanlineigmarray = igmparser.bilReader(igmfolder + '/' + scanlineigmfile)
                scanline = scanlinefolder + '/' + scanline
                gdalscanline = gdal.Open(scanline)
                gdalflightline = gdal.Open(flightline)
@@ -196,7 +196,7 @@ def autoBoresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
                      offline.append([i, offlinecoords[0], offlinecoords[1], offlinecoordsheight])
                      i+=1
                   try:
-                     pit, rol, hed = adjuster.calculator(flightline, online, offline, igmarray, flightlinealtitude, groundcontrolpoints=False)
+                     pit, rol, hed = distancecalculator.calculator(flightline, online, offline, igmarray, flightlinealtitude, groundcontrolpoints=False)
                      print pit, rol, hed
                      scanlineadjustments.append([np.float64(pit), np.float64(rol), np.float64(hed)])
                   except ArithmeticError:
