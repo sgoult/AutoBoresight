@@ -89,7 +89,7 @@ def tiePointGenerator(scanline1, scanline2, igmarray):
    bf = cv2.BFMatcher()
    sli1 = cv2.imread(scanline1)
    sli2 = cv2.imread(scanline2)
-   orb = cv2.ORB(nfeatures=1000)
+   orb = cv2.ORB(nfeatures=2000)
    #create keypoints
    slk1 = orb.detect(sli1)
    #filter to within the flightline object
@@ -106,14 +106,30 @@ def tiePointGenerator(scanline1, scanline2, igmarray):
    try:
       good = []
       for m, n in matches:
-         if m.distance < 0.7 * n.distance:
+         if m.distance < 0.9 * n.distance:
             good.append(m)
    except Exception, e:
       print e
-      print "something went horrifically wrong with bfmatcher :S"
+      print "something went wrong with bfmatcher"
+
+   destination_points = np.float32([slk1[m.queryIdx].pt for m in good]).reshape(-1,1,2)
+   source_points = np.float32([slk2[m.trainIdx].pt for m in good]).reshape(-1,1,2)
+
+   matrix, mask = cv2.findHomography(source_points, destination_points, cv2.RANSAC, 5.0)
+
+   matched_points = cv2.perspectiveTransform(source_points, matrix)
+
+   slk1_filtered = []
+   slk2_filtered = []
+   for e, point in enumerate(matched_points):
+      if (destination_points[e][0][0] + 100) > point[0][0] and (destination_points[e][0][0] - 100) < point[0][0]:
+         if (destination_points[e][0][1] + 100) > point[0][1] and (destination_points[e][0][1] - 100) < point[0][0]:
+            slk1_filtered.append(np.float32(slk1[e].pt))
+            slk2_filtered.append(np.float32(point[0]))
+
    print "Keypoints to be taken forward as tiepoints"
-   print len(good)
-   return slk1, slk2, good
+   print len(slk1_filtered)
+   return slk1_filtered, slk2_filtered
 
 def gcpIdentifier(scanlinetiff, gcpoints):
    """
@@ -143,15 +159,15 @@ def gcpIdentifier(scanlinetiff, gcpoints):
       try:
          good = []
          for m, n in matches:
-            if m.distance < 0.7 * n.distance:
+            if m.distance < 0.8 * n.distance:
                good.append(m)
       except Exception, e:
-         print "something went horrifically wrong with bfmatcher :S"
+         print "something went wrong with matching"
 
       #assuming we have 10 good matches or more we can move on to the next stage
       if len(good) > 10:
          src_pts = np.float32([gcpkeypoints[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-         dst_pts = np.float32([gcpkeypoints[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+         dst_pts = np.float32([scanlinekeys[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
          homography_matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
 

@@ -50,13 +50,32 @@ def centrePixel(bilarray, point):
          # if abs(latmin-point[1]) <= abs(latlow-point[1]):
             scanlines.append([enum, longmin])
 
-   minimum=10
+   minimum=7
    scanlinenumber = None
    for idx in scanlines:
       idxminimum = idx[1]
       if idxminimum < minimum:
          minimum = idxminimum
          scanlinenumber = idx[0]
+
+   if scanlinenumber is None:
+      #need to try from the other direction
+      for enum, scanline in enumerate(bilarray[1]):
+            longidx = (np.abs(scanline - point[1])).argmin()
+            if longidx != 951 and longidx != 0:
+               longmin=scanline[latidx]
+               latmin = abs(point[0] - bilarray[0][enum][longidx])
+               if latmin < 6:
+               # if abs(latmin-point[1]) <= abs(latlow-point[1]):
+                  scanlines.append([enum, latmin])
+
+      minimum=7
+      for idx in scanlines:
+         idxminimum = idx[1]
+         if idxminimum < minimum:
+            minimum = idxminimum
+            scanlinenumber = idx[0]
+
 
    if scanlinenumber is not None:
 
@@ -67,12 +86,13 @@ def centrePixel(bilarray, point):
                 bilarray[1][scanlinenumber][centerpx],
                 bilarray[2][scanlinenumber][centerpx]]
 
-      centerahead = [bilarray[0][scanlinenumber + 1][centerpx],
-                     bilarray[1][scanlinenumber + 1][centerpx],
-                     bilarray[2][scanlinenumber + 1][centerpx]]
+      if scanlinenumber != len(bilarray[0]):
+         centerahead = [bilarray[0][scanlinenumber + 1][centerpx],
+                        bilarray[1][scanlinenumber + 1][centerpx],
+                        bilarray[2][scanlinenumber + 1][centerpx]]
 
       #this is also the best time to return the bearing for this area of the flightline
-      if scanlinenumber > 0:
+      if scanlinenumber > 0 and scanlinenumber != len(bilarray[0]):
          centerbehind = [bilarray[0][scanlinenumber - 1][centerpx],
                          bilarray[1][scanlinenumber - 1][centerpx],
                          bilarray[2][scanlinenumber - 1][centerpx]]
@@ -82,8 +102,13 @@ def centrePixel(bilarray, point):
 
          bearing = (bearing1 + bearing2 + bearing3) / 3
 
-      else:
+      elif scanlinenumber is 0:
          bearing = bearingEstimator(center, centerahead)
+      else:
+         centerbehind = [bilarray[0][scanlinenumber - 1][centerpx],
+                         bilarray[1][scanlinenumber - 1][centerpx],
+                         bilarray[2][scanlinenumber - 1][centerpx]]
+         bearing = bearingEstimator(center, centerbehind)
 
       center.append(bearing)
       return center

@@ -172,23 +172,22 @@ def autoBoresight(scanlinefolder, gcpfolder, gcpcsv, igmfolder, navfile, output,
                if overlap != None:
                   print "overlap confirmed between %s and %s region is:" % (scanline, flightline)
                   print overlap
-                  slk1, slk2, matches = features.tiePointGenerator(flightline, scanline, igmarray)
+                  slk1, slk2 = features.tiePointGenerator(flightline, scanline, igmarray)
                   online=[]
                   offline=[]
                   i=1
-                  totalpoints = totalpoints + len(matches)
+                  totalpoints = totalpoints + len(slk1)
                   #finally compare the images for key points
-                  for match in matches:
+                  for enum, point in enumerate(slk1):
                      #creates ordered lists of the matched points
-
-                     onlinecoords = features.pixelCoordinates(slk1[match.queryIdx].pt[0], slk1[match.queryIdx].pt[1], gdalflightline)
+                     onlinecoords = features.pixelCoordinates(point[0], point[1], gdalflightline)
                      # print "online"
                      # print slk1[match.trainIdx].pt
                      # print onlinecoords
                      onlinecoordsheight = features.heightGrabber(igmarray, onlinecoords)
                      online.append([i, onlinecoords[0], onlinecoords[1], onlinecoordsheight])
 
-                     offlinecoords = features.pixelCoordinates(slk2[match.trainIdx].pt[0], slk2[match.trainIdx].pt[1], gdalscanline)
+                     offlinecoords = features.pixelCoordinates(slk2[enum][0], slk2[enum][1], gdalscanline)
                      # print "offline"
                      # print slk2[match.trainIdx].pt
                      # print offlinecoords
